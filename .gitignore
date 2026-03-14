@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.env
+.env.local
+.env*.local
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
