@@ -1,10 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import {
   createStructuralReadout,
+  createRoleBucketSummary,
+  deriveQuickRebuildOptions,
   inferDeckSection,
   YUGIOH_CONSTRAINT_OPTIONS,
   YUGIOH_INTENT_OPTIONS,
@@ -78,8 +81,8 @@ function SourceAuditBlock({ sourceAudit }: { sourceAudit: SourceAudit[] }) {
 
   return (
     <div className="yugioh-source-block">
-      {sourceAudit.map((entry) => (
-        <div key={`${entry.sourceName}-${entry.sourceUrl}`} className="yugioh-source-row">
+      {sourceAudit.map((entry, index) => (
+        <div key={`${entry.sourceName}-${entry.sourceUrl}-${index}`} className="yugioh-source-row">
           <strong>{entry.sourceName}</strong>
           <small>{entry.notes}</small>
         </div>
@@ -191,6 +194,7 @@ export function YugiohBuilderApp() {
     metaSnapshot,
     setStrengthTarget,
     setBuildIntent,
+    setConstraints,
     clearTheme,
     setThemeQuery,
     setResolvedArchetype,
@@ -292,6 +296,27 @@ export function YugiohBuilderApp() {
       }),
     [buildIntent, constraints, extra, main, side, strengthTarget, theme],
   );
+  const roleBuckets = useMemo(
+    () =>
+      createRoleBucketSummary({
+        main,
+        extra,
+        side,
+        theme,
+      }),
+    [extra, main, side, theme],
+  );
+  const quickRebuildOptions = useMemo(
+    () =>
+      deriveQuickRebuildOptions({
+        buildIntent,
+        constraints,
+        readout,
+        theme,
+        metaSnapshot,
+      }),
+    [buildIntent, constraints, metaSnapshot, readout, theme],
+  );
 
   function applyArchetype(archetype: YugiohArchetype) {
     setErrorMessage(null);
@@ -314,13 +339,18 @@ export function YugiohBuilderApp() {
     }
   }
 
-  async function generateShell() {
+  async function generateShell(overrides?: {
+    buildIntent?: typeof buildIntent;
+    constraints?: typeof constraints;
+  }) {
     const activeTheme = theme ?? {
       query: archetypeQuery.trim(),
       resolvedArchetype: null,
       resolvedBossCards: [],
       resolvedSupportCards: [],
     };
+    const nextBuildIntent = overrides?.buildIntent ?? buildIntent;
+    const nextConstraints = overrides?.constraints ?? constraints;
     const activeThemeLabel =
       activeTheme.resolvedArchetype ?? activeTheme.resolvedBossCards[0] ?? activeTheme.query.trim();
 
@@ -340,9 +370,9 @@ export function YugiohBuilderApp() {
         },
         body: JSON.stringify({
           theme: activeTheme,
-          buildIntent,
+          buildIntent: nextBuildIntent,
           strengthTarget,
-          constraints,
+          constraints: nextConstraints,
         }),
       });
 
@@ -354,6 +384,18 @@ export function YugiohBuilderApp() {
     }
   }
 
+  async function applyRebuildOption(option: {
+    buildIntent: typeof buildIntent;
+    constraints: typeof constraints;
+  }) {
+    setBuildIntent(option.buildIntent);
+    setConstraints(option.constraints);
+    await generateShell({
+      buildIntent: option.buildIntent,
+      constraints: option.constraints,
+    });
+  }
+
   return (
     <main className="page-shell">
       <section className="hero-panel yugioh-builder-hero">
@@ -362,8 +404,7 @@ export function YugiohBuilderApp() {
           <h1>Build a persistent shell now, then let the generator get smarter on top of it.</h1>
           <p className="hero-description">
             This phase upgrades Yu-Gi-Oh from a search demo into a real builder workspace. Lock a theme, choose how
-            nasty the shell should be, and start shaping Main, Extra, and Side while the auto-generation layer is still
-            coming online.
+            nasty the shell should be, and generate a Main, Extra, and Side shell that you can immediately tune by hand.
           </p>
           <div className="status-row">
             <span className="status-pill">Open Lab default</span>
@@ -658,8 +699,8 @@ export function YugiohBuilderApp() {
             </>
           ) : (
             <p className="empty-copy">
-              Search cards and start dropping them into Main, Extra, or Side. The generator layer comes next, but the
-              workspace is live right now for testing structure and direction.
+              Search cards and start dropping them into Main, Extra, or Side. You can mix manual edits with generated
+              shells whenever you want to steer the build more aggressively.
             </p>
           )}
         </div>
@@ -688,6 +729,31 @@ export function YugiohBuilderApp() {
                   <article key={note} className="summary-card yugioh-signal-card yugioh-signal-card-neutral">
                     <p className="empty-copy">{note}</p>
                   </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {quickRebuildOptions.length > 0 ? (
+            <div className="yugioh-generation-block">
+              <div className="panel-header">
+                <div>
+                  <p className="panel-kicker">Quick rebuilds</p>
+                  <h3>One-click tuning paths</h3>
+                </div>
+              </div>
+              <div className="yugioh-rebuild-grid">
+                {quickRebuildOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className="yugioh-rebuild-card"
+                    onClick={() => void applyRebuildOption(option)}
+                    disabled={isGenerating}
+                  >
+                    <strong>{option.title}</strong>
+                    <small>{option.description}</small>
+                  </button>
                 ))}
               </div>
             </div>
@@ -789,6 +855,16 @@ export function YugiohBuilderApp() {
             </article>
           </div>
 
+          <div className="yugioh-role-map">
+            {roleBuckets.map((bucket) => (
+              <article key={bucket.id} className="summary-card yugioh-role-bucket">
+                <span>{bucket.title}</span>
+                <strong>{bucket.count}</strong>
+                <small>{bucket.description}</small>
+              </article>
+            ))}
+          </div>
+
           <div className="yugioh-signal-list">
             {readout.warnings.map((warning) => (
               <article key={warning} className="summary-card yugioh-signal-card yugioh-signal-card-warn">
@@ -814,14 +890,19 @@ export function YugiohBuilderApp() {
               <p className="panel-kicker">Deck workspace</p>
               <h2>Persistent shell</h2>
             </div>
-            <button type="button" className="ghost-button" onClick={() => clearDeck()}>
-              Clear deck
-            </button>
+            <div className="tag-row">
+              <Link href="/yugioh/print" className="ghost-button">
+                Print proxies
+              </Link>
+              <button type="button" className="ghost-button" onClick={() => clearDeck()}>
+                Clear deck
+              </button>
+            </div>
           </div>
 
           <p className="empty-copy yugioh-workspace-copy">
-            The auto-generator is still next. This phase is about building a credible shell, seeing how it reads
-            structurally, and giving the next phase a clean foundation to automate from.
+            Use the generated shell as a starting point, then tighten ratios, swap tech cards, and stress-test the
+            structure manually. This workspace is the tuning bench, not just a static output.
           </p>
 
           <div className="yugioh-deck-grid">

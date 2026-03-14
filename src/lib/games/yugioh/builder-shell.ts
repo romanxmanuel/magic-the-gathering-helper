@@ -6,6 +6,7 @@ import type {
   YugiohDeckEntry,
   YugiohDeckSection,
   YugiohFormatMode,
+  YugiohMetaSnapshot,
   YugiohStrengthTarget,
   YugiohStructuralReadout,
   YugiohThemeSelection,
@@ -157,6 +158,21 @@ export const YUGIOH_CONSTRAINT_OPTIONS: Array<{
 const EXTRA_DECK_MARKERS = ["fusion", "synchro", "xyz", "link"];
 const SPELL_TRAP_MARKERS = ["spell", "trap"];
 
+export type YugiohRoleBucketSummary = {
+  id: string;
+  title: string;
+  count: number;
+  description: string;
+};
+
+export type YugiohQuickRebuildOption = {
+  id: string;
+  title: string;
+  description: string;
+  buildIntent: YugiohBuildIntent;
+  constraints: YugiohConstraint[];
+};
+
 function clampScore(score: number) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -273,6 +289,199 @@ function countThemeCopies(entries: YugiohDeckEntry[], theme: YugiohThemeSelectio
 
     return matchesTheme ? total + entry.quantity : total;
   }, 0);
+}
+
+function mergeConstraintList(
+  constraints: YugiohConstraint[],
+  payload: { add?: YugiohConstraint[]; remove?: YugiohConstraint[] },
+) {
+  const add = payload.add ?? [];
+  const remove = new Set(payload.remove ?? []);
+
+  return [...new Set(constraints.filter((constraint) => !remove.has(constraint)).concat(add))];
+}
+
+function themeLabel(theme: YugiohThemeSelection | null) {
+  return theme?.resolvedArchetype ?? theme?.resolvedBossCards[0] ?? theme?.query.trim() ?? "this shell";
+}
+
+export function createRoleBucketSummary(payload: {
+  main: YugiohDeckEntry[];
+  extra: YugiohDeckEntry[];
+  side: YugiohDeckEntry[];
+  theme: YugiohThemeSelection | null;
+}): YugiohRoleBucketSummary[] {
+  const { main, extra, side, theme } = payload;
+  const starters = countRoleCopies(main, "starter") + countRoleCopies(main, "searcher");
+  const extenders = countRoleCopies(main, "extender");
+  const payoffs = countRoleCopies(main, "payoff") + countRoleCopies(extra, "payoff");
+  const breakers = countRoleCopies(main, "board-breaker") + countRoleCopies(side, "board-breaker");
+  const interaction = countRoleCopies(main, "hand-trap") + countRoleCopies(side, "hand-trap");
+  const brickRisk = countRoleCopies(main, "brick-risk");
+  const themeCopies = countThemeCopies([...main, ...extra, ...side], theme);
+  const extraTools = countRoleCopies(extra, "extra-toolbox");
+  const label = themeLabel(theme);
+
+  return [
+    {
+      id: "theme-core",
+      title: "Theme Core",
+      count: themeCopies,
+      description:
+        themeCopies >= 16
+          ? `${label} is showing up often enough to keep the deck identity tight.`
+          : `${label} still needs more named engine density to feel fully locked in.`,
+    },
+    {
+      id: "starters",
+      title: "Starters",
+      count: starters,
+      description:
+        starters >= 12
+          ? "Starter density looks healthy for cleaner opening hands."
+          : "Starter density is still light, so this shell may open awkwardly.",
+    },
+    {
+      id: "extenders",
+      title: "Extenders",
+      count: extenders,
+      description:
+        extenders >= 6
+          ? "The shell has enough extension to keep combo turns alive after the opener."
+          : "Extension is still thin, so the deck may stall after the first starter.",
+    },
+    {
+      id: "interaction",
+      title: "Interaction",
+      count: interaction,
+      description:
+        interaction >= 6
+          ? "Interaction density is strong enough to trade with the field."
+          : "Interaction is currently modest, so this build leans harder on engine pressure.",
+    },
+    {
+      id: "breakers",
+      title: "Breakers",
+      count: breakers,
+      description:
+        breakers >= 5
+          ? "Board-breaking tools are present in meaningful numbers."
+          : "Breaker density is still light unless you want a more aggressive blind-second shell.",
+    },
+    {
+      id: "payoffs",
+      title: "Payoffs",
+      count: payoffs,
+      description:
+        payoffs >= 6
+          ? "The shell has enough payoff pressure to end turns on real threats."
+          : "Payoff density is still conservative, which keeps the build safer but less explosive.",
+    },
+    {
+      id: "brick-risk",
+      title: "Brick Risk",
+      count: brickRisk,
+      description:
+        brickRisk <= 4
+          ? "Brick exposure is reasonably contained right now."
+          : "High-end pieces are starting to crowd out smoother draws.",
+    },
+    {
+      id: "extra-tools",
+      title: "Extra Tools",
+      count: extraTools,
+      description:
+        extraTools >= 10
+          ? "The Extra Deck toolbox has enough depth to support multiple lines."
+          : "The Extra Deck is still shallow unless that is intentional for the build.",
+    },
+  ];
+}
+
+export function deriveQuickRebuildOptions(payload: {
+  buildIntent: YugiohBuildIntent;
+  constraints: YugiohConstraint[];
+  readout: YugiohStructuralReadout;
+  theme: YugiohThemeSelection | null;
+  metaSnapshot: YugiohMetaSnapshot | null;
+}): YugiohQuickRebuildOption[] {
+  const { buildIntent, constraints, readout, theme, metaSnapshot } = payload;
+  const options: YugiohQuickRebuildOption[] = [];
+  const label = themeLabel(theme);
+  const topFieldDeck = metaSnapshot?.topFieldDecks[0]?.name;
+
+  options.push({
+    id: "consistency-first",
+    title: "Tighten openers",
+    description:
+      readout.consistency >= 78
+        ? `Rebuild ${label} around cleaner starters and fewer dead draws.`
+        : `Consistency is the biggest current pressure point, so this rebuild leans harder into starters and low-brick ratios.`,
+    buildIntent: "consistency-first",
+    constraints: mergeConstraintList(constraints, {
+      add: ["low-brick"],
+      remove: ["fewer-hand-traps"],
+    }),
+  });
+
+  if (theme) {
+    options.push({
+      id: "pure-theme",
+      title: "Stay purer",
+      description: `Push the shell closer to ${label} itself and cut away more splash noise.`,
+      buildIntent: "pure",
+      constraints: mergeConstraintList(constraints, {
+        add: ["pure-only"],
+      }),
+    });
+  }
+
+  options.push({
+    id: "anti-meta",
+    title: "Pressure the field",
+    description: topFieldDeck
+      ? `Rebuild with more interaction and breaker density for a field that currently leans toward ${topFieldDeck}.`
+      : "Rebuild with more interaction and breaker density so the shell can punch up into common field decks.",
+    buildIntent: "anti-meta",
+    constraints: mergeConstraintList(constraints, {
+      remove: ["fewer-hand-traps"],
+    }),
+  });
+
+  options.push({
+    id: "ceiling-first",
+    title: "Push ceiling",
+    description:
+      readout.pressure >= 74
+        ? `Let ${label} chase scarier payoff turns and greedier end boards.`
+        : `Pressure is lagging a bit, so this rebuild chases stronger payoff density and extension.`,
+    buildIntent: "ceiling-first",
+    constraints: mergeConstraintList(constraints, {
+      remove: ["low-brick"],
+    }),
+  });
+
+  options.push({
+    id: "blind-second",
+    title: "Go second harder",
+    description: "Bias flex slots toward board breakers and crack-back pressure for a more explosive second-turn posture.",
+    buildIntent: "blind-second",
+    constraints: mergeConstraintList(constraints, {
+      remove: ["limit-traps"],
+    }),
+  });
+
+  const deduped = new Map<string, YugiohQuickRebuildOption>();
+
+  for (const option of options) {
+    if (option.buildIntent === buildIntent && option.constraints.join("|") === constraints.join("|")) {
+      continue;
+    }
+
+    deduped.set(option.id, option);
+  }
+
+  return [...deduped.values()].slice(0, 4);
 }
 
 export function createStructuralReadout(payload: {

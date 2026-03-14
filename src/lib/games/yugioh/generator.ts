@@ -656,10 +656,12 @@ export async function generateYugiohDeckShell({
     matchedDecks.length > 0
       ? "Theme slots were pulled from repeated inclusions in matching lists, while flex space leans on common field staples."
       : "No direct tournament-meta deck matches were found, so this shell falls back to name/archetype card search plus field staples. Confidence is lower.",
-    `The current field sample leans most heavily toward ${metaSnapshot.topFieldDecks
-      .slice(0, 3)
-      .map((entry) => `${entry.name} (${entry.count})`)
-      .join(", ")}.`,
+    metaSnapshot.topFieldDecks.length > 0
+      ? `The current field sample leans most heavily toward ${metaSnapshot.topFieldDecks
+          .slice(0, 3)
+          .map((entry) => `${entry.name} (${entry.count})`)
+          .join(", ")}.`
+      : "The current field sample did not return named archetype clusters, so the shell leans more heavily on theme cohesion than matchup targeting.",
     buildIntent === "anti-meta" || buildIntent === "blind-second"
       ? "Flex slots were biased toward interaction and board-breaking cards that repeatedly show up in the field sample."
       : "Flex slots were kept closer to engine density and stable openers before broader anti-field tech.",

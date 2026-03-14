@@ -501,6 +501,52 @@ input {
   gap: 0.75rem;
 }
 
+.yugioh-rebuild-grid,
+.yugioh-role-map {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.yugioh-rebuild-card,
+.yugioh-role-bucket {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.yugioh-rebuild-card {
+  border: 1px solid rgba(223, 193, 126, 0.16);
+  border-radius: 24px;
+  padding: 1rem 1.05rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.03), rgba(223, 193, 126, 0.08)),
+    rgba(8, 11, 19, 0.86);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.yugioh-rebuild-card:hover,
+.yugioh-rebuild-card:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(223, 193, 126, 0.28);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+}
+
+.yugioh-rebuild-card small,
+.yugioh-role-bucket small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.yugioh-role-bucket {
+  padding: 0.95rem;
+}
+
 .yugioh-meta-chip-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1270,6 +1316,150 @@ input {
   color: var(--muted);
 }
 
+.yugioh-print-shell {
+  --yugioh-card-width-mm: 59mm;
+  --yugioh-card-height-mm: 86mm;
+  --yugioh-gutter-mm: 3mm;
+  display: grid;
+  gap: 1rem;
+}
+
+.yugioh-print-toolbar {
+  display: grid;
+  gap: 1rem;
+}
+
+.yugioh-print-toolbar-actions,
+.yugioh-print-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.yugioh-print-toolbar-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.yugioh-print-toolbar-copy small {
+  color: var(--muted);
+}
+
+.yugioh-print-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(223, 193, 126, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--copy);
+}
+
+.yugioh-print-toggle input {
+  margin: 0;
+}
+
+.yugioh-calibration-page {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 24px;
+  border: 1px solid rgba(223, 193, 126, 0.14);
+  background: var(--panel-strong);
+  text-align: center;
+}
+
+.yugioh-calibration-card-outline {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+  width: min(280px, 100%);
+  aspect-ratio: 59 / 86;
+  border: 2px dashed rgba(223, 193, 126, 0.46);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+}
+
+.yugioh-calibration-card-outline span,
+.yugioh-calibration-card-outline small,
+.yugioh-calibration-ruler span {
+  color: var(--muted);
+}
+
+.yugioh-calibration-rulers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.yugioh-calibration-ruler {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  border: 1px dashed rgba(223, 193, 126, 0.3);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.yugioh-calibration-ruler-horizontal {
+  width: min(220px, 100%);
+  height: 22px;
+}
+
+.yugioh-calibration-ruler-vertical {
+  width: 22px;
+  height: 180px;
+}
+
+.yugioh-proxy-sheet-stack {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.yugioh-proxy-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid rgba(223, 193, 126, 0.12);
+  background: rgba(7, 11, 15, 0.72);
+}
+
+.yugioh-proxy-card {
+  position: relative;
+  aspect-ratio: 59 / 86;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+}
+
+.yugioh-proxy-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
+.yugioh-proxy-placeholder {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, #121a1f 0%, #10151b 100%);
+}
+
+.yugioh-print-shell-guides .yugioh-proxy-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
 .no-print {
   display: block;
 }
@@ -1292,7 +1482,9 @@ input {
   .yugioh-deck-grid,
   .yugioh-deck-entry,
   .yugioh-summary-grid,
-  .yugioh-meta-chip-grid {
+  .yugioh-meta-chip-grid,
+  .yugioh-rebuild-grid,
+  .yugioh-role-map {
     grid-template-columns: 1fr;
   }
 
@@ -1349,6 +1541,13 @@ input {
   .yugioh-stepper {
     justify-items: start;
   }
+
+  .yugioh-print-toolbar-actions,
+  .yugioh-print-toggle-row,
+  .yugioh-calibration-rulers {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 @media print {
@@ -1382,6 +1581,68 @@ input {
     height: 3.5in;
     border-radius: 0;
     border: 1px dashed rgba(0, 0, 0, 0.55);
+    break-inside: avoid;
+  }
+
+  .yugioh-print-shell {
+    gap: 0;
+  }
+
+  .yugioh-calibration-page {
+    min-height: 10in;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    break-after: page;
+  }
+
+  .yugioh-calibration-card-outline {
+    width: var(--yugioh-card-width-mm);
+    height: var(--yugioh-card-height-mm);
+    aspect-ratio: auto;
+    border: 1px dashed rgba(0, 0, 0, 0.55);
+    border-radius: 0;
+    background: #fff;
+  }
+
+  .yugioh-calibration-ruler-horizontal {
+    width: 50mm;
+    height: 6mm;
+    background: #fff;
+  }
+
+  .yugioh-calibration-ruler-vertical {
+    width: 6mm;
+    height: 80mm;
+    background: #fff;
+  }
+
+  .yugioh-proxy-sheet-stack {
+    gap: 0;
+  }
+
+  .yugioh-proxy-page {
+    grid-template-columns: repeat(3, var(--yugioh-card-width-mm));
+    gap: var(--yugioh-gutter-mm);
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    break-after: page;
+  }
+
+  .yugioh-proxy-page:last-child {
+    break-after: auto;
+  }
+
+  .yugioh-proxy-card {
+    width: var(--yugioh-card-width-mm);
+    height: var(--yugioh-card-height-mm);
+    aspect-ratio: auto;
+    border-radius: 0;
+    box-shadow: none;
     break-inside: avoid;
   }
 }

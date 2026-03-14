@@ -51,6 +51,13 @@ export async function POST(request: NextRequest) {
     const generatedDeck = await generateYugiohDeckShell(payload);
     return NextResponse.json(generatedDeck);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message ?? "Invalid Yu-Gi-Oh deck generation payload." },
+        { status: 400 },
+      );
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to generate Yu-Gi-Oh shell." },
       { status: 500 },
