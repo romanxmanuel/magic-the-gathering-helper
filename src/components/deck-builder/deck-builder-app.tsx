@@ -259,6 +259,7 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
   }, [entries]);
 
   const deckCount = entries.length + (selectedCommander ? 1 : 0);
+  const canOpenPrintSheet = entries.length > 0;
   const colorIdentityDisplay = selectedCommander
     ? formatColorIdentity(selectedCommander.colorIdentity)
     : formatColorIdentity(selectedColors);
@@ -355,20 +356,27 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
   }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell page-shell-mtg">
       <section className="hero-panel">
         <div className="hero-copy">
           <p className="eyebrow">Commander Deck Lab</p>
           <h1>Build legal EDH decks, tune them fast, and print true-size proxy sheets.</h1>
           <p className="hero-description">
-            This build stays Commander-first: Scryfall handles card data and images, EDHREC feeds the meta shell,
-            and the official Wizards banned list keeps the rules honest.
+            This workflow stays Commander-first: Scryfall handles cards and images, EDHREC shapes the meta shell,
+            Commander Spellbook adds power context, and the official Wizards banned list keeps the rules honest.
           </p>
           <div className="status-row">
             <span className="status-pill">Commander only</span>
             <span className="status-pill">Meta-backed</span>
             <span className="status-pill">Proxy-print ready</span>
           </div>
+          {selectedCommander ? (
+            <div className="tag-row">
+              <span className="tag-pill tag-pill-active">{selectedCommander.name}</span>
+              <span className="tag-pill">{colorIdentityDisplay}</span>
+              <span className="tag-pill">{deckCount}/100 cards</span>
+            </div>
+          ) : null}
         </div>
         <div className="hero-card">
           {selectedCommander?.imageUris.normal ? (
@@ -381,163 +389,173 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
               priority
             />
           ) : (
-            <div className="hero-card-placeholder">
-              <span>Choose a commander to anchor the build.</span>
+            <div className="hero-card-placeholder hero-guide-card">
+              <strong>Start with a commander</strong>
+              <p className="empty-copy">
+                Pick colors or search a commander first. Once that anchor is locked, the builder can shape the shell,
+                validate legality, and open the print workflow.
+              </p>
+              <ul className="hero-guide-list">
+                <li>Choose colors or search a commander</li>
+                <li>Pick a focus tag and power lane</li>
+                <li>Generate, tweak, and print proxies</li>
+              </ul>
             </div>
           )}
         </div>
       </section>
 
-      <section className="dashboard-grid">
-        <div className="panel control-panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Step 1</p>
-              <h2>Choose your lane</h2>
-            </div>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => {
-                setCommander(null);
-                setSelectedColors([]);
-                clearDeck();
-                setCommanderQuery("");
-              }}
-            >
-              Reset
-            </button>
-          </div>
-
-          <label className="field-label">Color identity</label>
-          <div className="mana-chip-row">
-            {ORDERED_COLORS.map((color) => (
+      <section className="dashboard-grid mtg-dashboard-grid">
+        <div className="panel-stack mtg-sidebar-stack">
+          <div className="panel control-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Step 1</p>
+                <h2>Choose your lane</h2>
+              </div>
               <button
-                key={color}
                 type="button"
-                className={`mana-chip mana-${color.toLowerCase()} ${
-                  selectedColors.includes(color) ? "mana-chip-active" : ""
-                }`}
-                onClick={() => toggleColor(color)}
+                className="ghost-button"
+                onClick={() => {
+                  setCommander(null);
+                  setSelectedColors([]);
+                  clearDeck();
+                  setCommanderQuery("");
+                }}
               >
-                {color}
+                Reset
               </button>
-            ))}
-          </div>
+            </div>
 
-          <label className="field-label" htmlFor="commander-search">
-            Search for a commander
-          </label>
-          <input
-            id="commander-search"
-            className="app-input"
-            placeholder="Atraxa, Yuriko, Y'shtola..."
-            value={commanderQuery}
-            onChange={(event) => setCommanderQuery(event.target.value)}
-          />
-
-          {commanderResults.length > 0 ? (
-            <div className="result-list">
-              {commanderResults.map((commander) => (
+            <label className="field-label">Color identity</label>
+            <div className="mana-chip-row">
+              {ORDERED_COLORS.map((color) => (
                 <button
-                  key={commander.id}
+                  key={color}
                   type="button"
-                  className="result-item"
-                  onClick={() => selectCommander(commander)}
+                  className={`mana-chip mana-${color.toLowerCase()} ${
+                    selectedColors.includes(color) ? "mana-chip-active" : ""
+                  }`}
+                  onClick={() => toggleColor(color)}
                 >
-                  {commander.imageUris.artCrop ? (
-                    <Image
-                      src={commander.imageUris.artCrop}
-                      alt=""
-                      width={64}
-                      height={64}
-                      className="result-thumb"
-                    />
-                  ) : (
-                    <div className="result-thumb result-thumb-placeholder" />
-                  )}
-                  <span>
-                    <strong>{commander.name}</strong>
-                    <small>{formatColorIdentity(commander.colorIdentity)}</small>
-                  </span>
+                  {color}
                 </button>
               ))}
             </div>
-          ) : null}
 
-          {!selectedCommander && colorSuggestions.length > 0 ? (
-            <>
-              <label className="field-label">Top commanders for {colorIdentityDisplay}</label>
-              <div className="suggestion-grid">
-                {colorSuggestions.slice(0, 6).map((suggestion) => (
+            <label className="field-label" htmlFor="commander-search">
+              Search for a commander
+            </label>
+            <input
+              id="commander-search"
+              className="app-input"
+              placeholder="Atraxa, Yuriko, Y'shtola..."
+              value={commanderQuery}
+              onChange={(event) => setCommanderQuery(event.target.value)}
+            />
+
+            {commanderResults.length > 0 ? (
+              <div className="result-list">
+                {commanderResults.map((commander) => (
                   <button
-                    key={suggestion.slug}
+                    key={commander.id}
                     type="button"
-                    className="suggestion-card"
-                    onClick={() => hydrateColorSuggestion(suggestion)}
+                    className="result-item"
+                    onClick={() => selectCommander(commander)}
                   >
-                    <span>{suggestion.name}</span>
-                    <small>{suggestion.inclusion?.toLocaleString()} decks</small>
+                    {commander.imageUris.artCrop ? (
+                      <Image
+                        src={commander.imageUris.artCrop}
+                        alt=""
+                        width={64}
+                        height={64}
+                        className="result-thumb"
+                      />
+                    ) : (
+                      <div className="result-thumb result-thumb-placeholder" />
+                    )}
+                    <span>
+                      <strong>{commander.name}</strong>
+                      <small>{formatColorIdentity(commander.colorIdentity)}</small>
+                    </span>
                   </button>
                 ))}
               </div>
-            </>
-          ) : null}
+            ) : null}
 
-          {selectedCommander ? (
-            <>
-              <label className="field-label">Focus tag</label>
-              <div className="tag-row">
+            {!selectedCommander && colorSuggestions.length > 0 ? (
+              <>
+                <label className="field-label">Top commanders for {colorIdentityDisplay}</label>
+                <div className="suggestion-grid">
+                  {colorSuggestions.slice(0, 6).map((suggestion) => (
+                    <button
+                      key={suggestion.slug}
+                      type="button"
+                      className="suggestion-card"
+                      onClick={() => hydrateColorSuggestion(suggestion)}
+                    >
+                      <span>{suggestion.name}</span>
+                      <small>{suggestion.inclusion?.toLocaleString()} decks</small>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {selectedCommander ? (
+              <>
+                <label className="field-label">Focus tag</label>
+                <div className="tag-row">
+                  <button
+                    type="button"
+                    className={`tag-pill ${focusTag === null ? "tag-pill-active" : ""}`}
+                    onClick={() => setFocusTag(null)}
+                  >
+                    Best stuff
+                  </button>
+                  {(commanderMeta?.tags ?? []).slice(0, 10).map((tag) => (
+                    <button
+                      key={tag.slug}
+                      type="button"
+                      className={`tag-pill ${focusTag?.slug === tag.slug ? "tag-pill-active" : ""}`}
+                      onClick={() => setFocusTag(tag)}
+                    >
+                      {tag.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            <label className="field-label">Power preset</label>
+            <div className="power-grid">
+              {POWER_PRESETS.map((preset) => (
                 <button
+                  key={preset.value}
                   type="button"
-                  className={`tag-pill ${focusTag === null ? "tag-pill-active" : ""}`}
-                  onClick={() => setFocusTag(null)}
+                  className={`power-card ${powerPreset === preset.value ? "power-card-active" : ""}`}
+                  onClick={() => setPowerPreset(preset.value)}
                 >
-                  Best stuff
+                  <strong>{preset.title}</strong>
+                  <small>{preset.description}</small>
                 </button>
-                {(commanderMeta?.tags ?? []).slice(0, 10).map((tag) => (
-                  <button
-                    key={tag.slug}
-                    type="button"
-                    className={`tag-pill ${focusTag?.slug === tag.slug ? "tag-pill-active" : ""}`}
-                    onClick={() => setFocusTag(tag)}
-                  >
-                    {tag.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
-
-          <label className="field-label">Power preset</label>
-          <div className="power-grid">
-            {POWER_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                type="button"
-                className={`power-card ${powerPreset === preset.value ? "power-card-active" : ""}`}
-                onClick={() => setPowerPreset(preset.value)}
-              >
-                <strong>{preset.title}</strong>
-                <small>{preset.description}</small>
-              </button>
-            ))}
-          </div>
-
-          <button type="button" className="primary-button" onClick={generateDeck} disabled={isPending}>
-            {isPending ? "Building deck shell..." : "Build Commander Deck"}
-          </button>
-
-          {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
-        </div>
-
-        <div className="panel meta-panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Step 2</p>
-              <h2>Meta snapshot</h2>
+              ))}
             </div>
+
+            <button type="button" className="primary-button" onClick={generateDeck} disabled={isPending}>
+              {isPending ? "Building deck shell..." : "Build Commander Deck"}
+            </button>
+
+            {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
           </div>
+
+          <div className="panel meta-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Step 2</p>
+                <h2>Meta snapshot</h2>
+              </div>
+            </div>
 
           {selectedCommander ? (
             <>
@@ -645,12 +663,21 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                 </div>
               ) : null}
             </>
-          ) : (
-            <p className="empty-copy">
-              Pick colors or search for a commander. Once one is locked in, the app will pull synergy tags, combo
-              hints, and shape data for the deck shell.
-            </p>
-          )}
+            ) : (
+              <div className="empty-state-card">
+                <strong>Commander context appears here</strong>
+                <p className="empty-copy">
+                  Once you lock a commander, this panel fills with synergy tags, combo hints, mechanics guidance, and
+                  average shell shape so the build starts from something grounded.
+                </p>
+                <ul className="empty-state-list">
+                  <li>EDHREC tags and shape data</li>
+                  <li>Commander Spellbook combo pressure</li>
+                  <li>Mechanics primer and play pattern hints</li>
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="panel deck-panel">
@@ -659,9 +686,18 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
               <p className="panel-kicker">Step 3</p>
               <h2>Deck shell</h2>
             </div>
-            <Link href="/mtg/print" className="ghost-button">
-              Open print sheet
-            </Link>
+            <div className="tag-row">
+              {canOpenPrintSheet ? (
+                <Link href="/mtg/print" className="ghost-button">
+                  Open print sheet
+                </Link>
+              ) : (
+                <span className="ghost-button button-disabled">Open print sheet</span>
+              )}
+              <button type="button" className="ghost-button" onClick={() => clearDeck()}>
+                Clear deck
+              </button>
+            </div>
           </div>
 
           <div className="summary-grid">
@@ -777,6 +813,21 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
 
           {selectedCommander ? (
             <div className="deck-list-shell">
+              {entries.length === 0 ? (
+                <div className="empty-state-card">
+                  <strong>Ready for the first shell</strong>
+                  <p className="empty-copy">
+                    Your commander is locked. Pick a focus tag if you want a specific lane, then build the initial 99
+                    and start tuning from there.
+                  </p>
+                  <div className="status-row">
+                    <span className="status-pill">Commander chosen</span>
+                    <span className="status-pill">Power lane ready</span>
+                    <span className="status-pill">Print opens after build</span>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="deck-section-list">
                 <div className="deck-group">
                   <div className="deck-group-header">
@@ -874,7 +925,13 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
               </div>
             </div>
           ) : (
-            <p className="empty-copy">The deck list will appear here after you select a commander and build a shell.</p>
+            <div className="empty-state-card">
+              <strong>The deck shell appears here</strong>
+              <p className="empty-copy">
+                Choose a commander first, then build or tweak the shell. Once cards are in place, this panel becomes
+                your live list plus the gateway into print-ready proxies.
+              </p>
+            </div>
           )}
         </div>
       </section>

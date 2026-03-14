@@ -28,6 +28,8 @@ import { useYugiohStore } from "@/store/yugioh-store";
 
 type SearchScope = "theme" | "all";
 
+const STARTER_THEME_SEEDS = ["Yubel", "Sky Striker", "Tenpai", "Branded", "Blue-Eyes"];
+
 async function fetchJson<T>(input: string, init?: RequestInit) {
   const response = await fetch(input, init);
 
@@ -317,11 +319,23 @@ export function YugiohBuilderApp() {
       }),
     [buildIntent, constraints, metaSnapshot, readout, theme],
   );
+  const totalDeckCards = sumEntries(main) + sumEntries(extra) + sumEntries(side);
+  const hasGeneratedShell = buildNotes.length > 0 || metaSnapshot !== null;
+  const canPrint = totalDeckCards > 0;
+  const showQuickRebuilds = hasGeneratedShell && quickRebuildOptions.length > 0;
 
   function applyArchetype(archetype: YugiohArchetype) {
     setErrorMessage(null);
     setThemeQuery(archetype.name);
     setResolvedArchetype(archetype.name);
+    setSearchScope("theme");
+  }
+
+  function primeTheme(themeName: string) {
+    setErrorMessage(null);
+    setArchetypeQuery(themeName);
+    setThemeQuery(themeName);
+    setResolvedArchetype(themeName);
     setSearchScope("theme");
   }
 
@@ -397,39 +411,50 @@ export function YugiohBuilderApp() {
   }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell page-shell-yugioh">
       <section className="hero-panel yugioh-builder-hero">
         <div className="hero-copy">
           <p className="eyebrow">Yu-Gi-Oh Duel Forge</p>
-          <h1>Build a persistent shell now, then let the generator get smarter on top of it.</h1>
+          <h1>Generate strong theme shells fast, then tune them like a real deck lab.</h1>
           <p className="hero-description">
-            This phase upgrades Yu-Gi-Oh from a search demo into a real builder workspace. Lock a theme, choose how
-            nasty the shell should be, and generate a Main, Extra, and Side shell that you can immediately tune by hand.
+            Duel Forge is now a real archetype-first workspace. Lock a theme, bias the shell toward the field, rebuild
+            it in one click, and print the result when you want to test it physically.
           </p>
           <div className="status-row">
             <span className="status-pill">Open Lab default</span>
-            <span className="status-pill">Persistent deck state</span>
-            <span className="status-pill">Structural readout live</span>
+            <span className="status-pill">Meta-powered shells</span>
+            <span className="status-pill">Proxy-print ready</span>
           </div>
         </div>
 
         <div className="panel yugioh-source-panel">
-          <p className="panel-kicker">Current phase</p>
-          <h2>Builder shell</h2>
+          <p className="panel-kicker">Open Lab</p>
+          <h2>Duel Forge workspace</h2>
           <p className="hero-description">
-            Banlist pressure is intentionally off here. The shell still respects sane card counts and keeps explaining
-            what it sees structurally so the future generator has a clean place to take over.
+            Banlist pressure is intentionally off here. The generator is chasing structurally strong, anti-meta ideas,
+            then giving you clean rebuild paths instead of hiding the logic.
           </p>
           <ul className="launcher-feature-list">
-            <li>Theme memory with boss-card anchors</li>
-            <li>Main / Extra / Side deck composition</li>
-            <li>Heuristic structural scoring and warnings</li>
             <li>Auto-generated shells from live tournament-meta data</li>
+            <li>Quick rebuild options for different tuning directions</li>
+            <li>Main / Extra / Side print workflow</li>
           </ul>
           <div className="tag-row">
-            <button type="button" className="primary-button" onClick={() => void generateShell()} disabled={isGenerating}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void generateShell()}
+              disabled={isGenerating}
+            >
               {isGenerating ? "Generating shell..." : "Generate strongest shell"}
             </button>
+            {canPrint ? (
+              <Link href="/yugioh/print" className="ghost-button">
+                Open print view
+              </Link>
+            ) : (
+              <span className="ghost-button button-disabled">Open print view</span>
+            )}
             <span className="status-pill">{formatMode === "open-lab" ? "Open Lab" : formatMode}</span>
           </div>
           {theme ? (
@@ -442,7 +467,13 @@ export function YugiohBuilderApp() {
               </small>
             </div>
           ) : (
-            <p className="empty-copy">Pick an archetype or anchor a signature card to start shaping the shell.</p>
+            <div className="empty-state-card">
+              <strong>Pick a theme to start</strong>
+              <p className="empty-copy">
+                Start with an archetype like Yubel, Sky Striker, or Tenpai, or anchor a specific boss monster once you
+                begin searching cards.
+              </p>
+            </div>
           )}
         </div>
       </section>
@@ -476,6 +507,16 @@ export function YugiohBuilderApp() {
               }
             }}
           />
+
+          {!theme && !showArchetypeResults ? (
+            <div className="tag-row yugioh-seed-row">
+              {STARTER_THEME_SEEDS.map((themeName) => (
+                <button key={themeName} type="button" className="tag-pill" onClick={() => primeTheme(themeName)}>
+                  {themeName}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           {theme ? (
             <div className="tag-row yugioh-selected-theme">
@@ -698,10 +739,13 @@ export function YugiohBuilderApp() {
               <SourceAuditBlock sourceAudit={cardAudit} />
             </>
           ) : (
-            <p className="empty-copy">
-              Search cards and start dropping them into Main, Extra, or Side. You can mix manual edits with generated
-              shells whenever you want to steer the build more aggressively.
-            </p>
+            <div className="empty-state-card">
+              <strong>Search and hand-tune anything</strong>
+              <p className="empty-copy">
+                Search cards to sharpen the shell manually, add off-theme tech, or anchor a specific boss monster that
+                the auto-generator should respect on the next pass.
+              </p>
+            </div>
           )}
         </div>
       </section>
@@ -734,7 +778,7 @@ export function YugiohBuilderApp() {
             </div>
           ) : null}
 
-          {quickRebuildOptions.length > 0 ? (
+          {showQuickRebuilds ? (
             <div className="yugioh-generation-block">
               <div className="panel-header">
                 <div>
@@ -756,6 +800,16 @@ export function YugiohBuilderApp() {
                   </button>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {!hasGeneratedShell && totalDeckCards === 0 ? (
+            <div className="empty-state-card">
+              <strong>Generate or hand-build a shell first</strong>
+              <p className="empty-copy">
+                This panel gets much smarter after the first generated list or a meaningful manual shell. That is when
+                rebuild paths, field context, and role distribution become genuinely useful.
+              </p>
             </div>
           ) : null}
 
@@ -807,9 +861,7 @@ export function YugiohBuilderApp() {
                       className="summary-card yugioh-sample-card"
                     >
                       <strong>{deck.deckName}</strong>
-                      <small>
-                        {[deck.tournamentName, deck.placement, deck.submitDateLabel].filter(Boolean).join(" · ")}
-                      </small>
+                      <small>{[deck.tournamentName, deck.placement, deck.submitDateLabel].filter(Boolean).join(" | ")}</small>
                     </a>
                   ))}
                 </div>
@@ -855,15 +907,17 @@ export function YugiohBuilderApp() {
             </article>
           </div>
 
-          <div className="yugioh-role-map">
-            {roleBuckets.map((bucket) => (
-              <article key={bucket.id} className="summary-card yugioh-role-bucket">
-                <span>{bucket.title}</span>
-                <strong>{bucket.count}</strong>
-                <small>{bucket.description}</small>
-              </article>
-            ))}
-          </div>
+          {totalDeckCards > 0 ? (
+            <div className="yugioh-role-map">
+              {roleBuckets.map((bucket) => (
+                <article key={bucket.id} className="summary-card yugioh-role-bucket">
+                  <span>{bucket.title}</span>
+                  <strong>{bucket.count}</strong>
+                  <small>{bucket.description}</small>
+                </article>
+              ))}
+            </div>
+          ) : null}
 
           <div className="yugioh-signal-list">
             {readout.warnings.map((warning) => (
@@ -891,9 +945,13 @@ export function YugiohBuilderApp() {
               <h2>Persistent shell</h2>
             </div>
             <div className="tag-row">
-              <Link href="/yugioh/print" className="ghost-button">
-                Print proxies
-              </Link>
+              {canPrint ? (
+                <Link href="/yugioh/print" className="ghost-button">
+                  Print proxies
+                </Link>
+              ) : (
+                <span className="ghost-button button-disabled">Print proxies</span>
+              )}
               <button type="button" className="ghost-button" onClick={() => clearDeck()}>
                 Clear deck
               </button>
@@ -904,6 +962,16 @@ export function YugiohBuilderApp() {
             Use the generated shell as a starting point, then tighten ratios, swap tech cards, and stress-test the
             structure manually. This workspace is the tuning bench, not just a static output.
           </p>
+
+          {totalDeckCards === 0 ? (
+            <div className="empty-state-card">
+              <strong>No shell yet</strong>
+              <p className="empty-copy">
+                Pick a theme and generate a shell, or search cards and build by hand. The workspace becomes much easier
+                to read once at least the first 40-card idea is on the table.
+              </p>
+            </div>
+          ) : null}
 
           <div className="yugioh-deck-grid">
             <DeckSectionPanel

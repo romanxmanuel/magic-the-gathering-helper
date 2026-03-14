@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
 import type { CommanderOption, DeckEntry } from "@/lib/mtg/types";
 
@@ -41,19 +42,58 @@ function printableEntries(commander: CommanderOption | null, entries: DeckEntry[
 
 export function PrintSheet({ commander, entries }: PrintSheetProps) {
   const cards = printableEntries(commander, entries);
+  const pageCount = Math.ceil(cards.length / 9);
 
   if (cards.length === 0) {
-    return <p className="empty-copy">Build a deck first, then this page becomes a cut-ready proxy sheet.</p>;
+    return (
+      <section className="print-layout">
+        <div className="print-empty-state">
+          <p className="panel-kicker">MTG Print Studio</p>
+          <h2>Build a deck first, then print it here.</h2>
+          <p className="empty-copy">
+            Once your Commander shell exists, this page turns into a cut-ready proxy sheet with true-size Magic card
+            dimensions.
+          </p>
+          <div className="tag-row empty-state-actions">
+            <Link href="/mtg" className="primary-button">
+              Back to MTG builder
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className="print-layout">
+    <section className="print-layout mtg-print-layout">
       <div className="print-toolbar no-print">
+        <div className="print-toolbar-copy">
+          <strong>{commander?.name ?? "Commander proxy sheet"}</strong>
+          <small>Cards are sized to 2.5in x 3.5in for standard Magic playtest proxies.</small>
+        </div>
         <button type="button" className="primary-button" onClick={() => window.print()}>
-          Print proxy sheet
+          Print / Save as PDF
         </button>
-        <p>Cards are sized to 2.5in x 3.5in for standard Magic proxies.</p>
       </div>
+
+      <section className="summary-grid no-print">
+        <article className="summary-card">
+          <span>Total cards</span>
+          <strong>{cards.length}</strong>
+        </article>
+        <article className="summary-card">
+          <span>Commander</span>
+          <strong>{commander ? "Included" : "None"}</strong>
+        </article>
+        <article className="summary-card">
+          <span>Pages</span>
+          <strong>{pageCount}</strong>
+        </article>
+        <article className="summary-card">
+          <span>Use</span>
+          <strong>Playtesting</strong>
+        </article>
+      </section>
 
       <div className="proxy-sheet">
         {cards.map((card, index) => (

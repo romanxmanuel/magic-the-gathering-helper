@@ -69,12 +69,19 @@ export function YugiohPrintSheet() {
   if (printableCards.length === 0) {
     return (
       <main className="print-page-shell">
-        <div className="print-toolbar no-print">
-          <Link href="/yugioh" className="ghost-button">
-            Back to Yu-Gi-Oh
-          </Link>
-          <p>Build or generate a Yu-Gi-Oh shell first, then this page becomes a cut-ready proxy sheet.</p>
-        </div>
+        <section className="print-empty-state">
+          <p className="panel-kicker">Yu-Gi-Oh Print Studio</p>
+          <h2>Build a shell first, then print it here.</h2>
+          <p className="empty-copy">
+            Once your Duel Forge list has cards in Main, Extra, or Side, this page becomes a Japanese-size proxy sheet
+            with optional calibration and cut guides.
+          </p>
+          <div className="tag-row empty-state-actions">
+            <Link href="/yugioh" className="primary-button">
+              Back to Duel Forge
+            </Link>
+          </div>
+        </section>
       </main>
     );
   }

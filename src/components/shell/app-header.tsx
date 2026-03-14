@@ -36,12 +36,12 @@ export function AppHeader() {
           <span className="site-brand-mark">CL</span>
           <span className="site-brand-copy">
             <strong>Card Lab</strong>
-            <small>Build, tune, and print across both games.</small>
+            <small>Separate MTG and Yu-Gi-Oh labs under one roof.</small>
           </span>
         </Link>
 
         <div className="site-header-actions">
-          <span className="site-section-label">{sectionLabel}</span>
+          <span className="site-section-chip">{sectionLabel}</span>
           <GameSwitcher />
         </div>
       </div>

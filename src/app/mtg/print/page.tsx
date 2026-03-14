@@ -11,6 +11,10 @@ export default function MtgPrintPage() {
   return (
     <main className="print-page-shell">
       <div className="no-print print-page-topbar">
+        <div className="print-toolbar-copy">
+          <strong>Commander print studio</strong>
+          <small>Generate clean 2.5in x 3.5in playtest sheets and export them through your browser print dialog.</small>
+        </div>
         <Link href="/mtg" className="ghost-button">
           Back to MTG builder
         </Link>
