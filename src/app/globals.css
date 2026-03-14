@@ -424,9 +424,13 @@ input {
 
 .deck-list-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+}
+
+.deck-list-shell-active {
+  grid-template-columns: minmax(0, 1fr) 236px;
 }
 
 .deck-row {
@@ -594,7 +598,8 @@ input {
     grid-template-columns: 1fr;
   }
 
-  .deck-list-shell {
+  .deck-list-shell,
+  .deck-list-shell-active {
     grid-template-columns: 1fr;
   }
 

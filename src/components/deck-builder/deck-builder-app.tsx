@@ -786,7 +786,7 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
 
           {selectedCommander ? (
             <div
-              className="deck-list-shell"
+              className={`deck-list-shell ${activePreviewCard ? "deck-list-shell-active" : ""}`}
               onMouseLeave={() => setHoverPreviewCard(null)}
             >
               <div className="deck-section-list">
@@ -897,14 +897,14 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
               {activePreviewCard ? (
                 <aside className="deck-preview-panel">
                   {activePreviewCard.image ? (
-                  <Image
-                    src={activePreviewCard.image}
-                    alt={activePreviewCard.name}
-                    width={320}
-                    height={446}
-                    className="deck-preview-image"
-                    unoptimized
-                  />
+                    <Image
+                      src={activePreviewCard.image}
+                      alt={activePreviewCard.name}
+                      width={320}
+                      height={446}
+                      className="deck-preview-image"
+                      unoptimized
+                    />
                   ) : (
                     <div className="deck-preview-placeholder">
                       <strong>{activePreviewCard.name}</strong>
