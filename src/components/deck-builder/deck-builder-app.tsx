@@ -105,21 +105,18 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
   const [cardResults, setCardResults] = useState<CardSummary[]>([]);
   const [commanderMeta, setCommanderMeta] = useState<CommanderMeta | null>(null);
   const [hoverPreviewCard, setHoverPreviewCard] = useState<HoverPreviewCard | null>(null);
-  const [pinnedPreviewCard, setPinnedPreviewCard] = useState<HoverPreviewCard | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!selectedCommander) {
       setHoverPreviewCard(null);
-      setPinnedPreviewCard(null);
       return;
     }
 
     setSelectedColors(selectedCommander.colorIdentity);
     setCommanderQuery(selectedCommander.name);
     setHoverPreviewCard(null);
-    setPinnedPreviewCard(null);
   }, [selectedCommander]);
 
   useEffect(() => {
@@ -265,16 +262,10 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
   const colorIdentityDisplay = selectedCommander
     ? formatColorIdentity(selectedCommander.colorIdentity)
     : formatColorIdentity(selectedColors);
-  const activePreviewCard = hoverPreviewCard ?? pinnedPreviewCard;
+  const activePreviewCard = hoverPreviewCard;
 
   function setPreviewCard(card: HoverPreviewCard) {
     setHoverPreviewCard(card);
-  }
-
-  function togglePinnedPreviewCard(card: HoverPreviewCard) {
-    setPinnedPreviewCard((currentCard) =>
-      currentCard?.name === card.name ? null : card,
-    );
   }
 
   function toggleColor(color: ManaColor) {
@@ -785,46 +776,39 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
           ) : null}
 
           {selectedCommander ? (
-            <div
-              className="deck-list-shell"
-              onMouseLeave={() => setHoverPreviewCard(null)}
-            >
+            <div className="deck-list-shell">
               <div className="deck-section-list">
                 <div className="deck-group">
                   <div className="deck-group-header">
                     <h3>Commander</h3>
                     <span>1</span>
                   </div>
-                  <div
-                    className="deck-row commander-row"
-                    onMouseEnter={() =>
-                      setPreviewCard({
-                        name: selectedCommander.name,
-                        typeLine: selectedCommander.typeLine,
-                        image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
-                      })
-                    }
-                    onClick={() =>
-                      togglePinnedPreviewCard({
-                        name: selectedCommander.name,
-                        typeLine: selectedCommander.typeLine,
-                        image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
-                      })
-                    }
-                  >
+                  <div className="deck-row commander-row">
                     <div className="deck-row-copy">
-                      {selectedCommander.imageUris.normal || selectedCommander.imageUris.png ? (
-                        <Image
-                          src={selectedCommander.imageUris.normal || selectedCommander.imageUris.png}
-                          alt={selectedCommander.name}
-                          width={80}
-                          height={112}
-                          className="deck-row-thumb"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="deck-row-thumb deck-row-thumb-placeholder" />
-                      )}
+                      <div
+                        className="deck-row-thumb-trigger"
+                        onMouseEnter={() =>
+                          setPreviewCard({
+                            name: selectedCommander.name,
+                            typeLine: selectedCommander.typeLine,
+                            image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
+                          })
+                        }
+                        onMouseLeave={() => setHoverPreviewCard(null)}
+                      >
+                        {selectedCommander.imageUris.normal || selectedCommander.imageUris.png ? (
+                          <Image
+                            src={selectedCommander.imageUris.normal || selectedCommander.imageUris.png}
+                            alt={selectedCommander.name}
+                            width={80}
+                            height={112}
+                            className="deck-row-thumb"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="deck-row-thumb deck-row-thumb-placeholder" />
+                        )}
+                      </div>
                       <div>
                         <span>{selectedCommander.name}</span>
                         <small>{selectedCommander.typeLine}</small>
@@ -841,37 +825,32 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                     </div>
                     <div className="deck-rows">
                       {roleEntries.map((entry) => (
-                        <div
-                          key={`${entry.name}-${entry.id}`}
-                          className="deck-row"
-                          onMouseEnter={() =>
-                            setPreviewCard({
-                              name: entry.name,
-                              typeLine: entry.typeLine,
-                              image: entry.imageUris.normal || entry.imageUris.png,
-                            })
-                          }
-                          onClick={() =>
-                            togglePinnedPreviewCard({
-                              name: entry.name,
-                              typeLine: entry.typeLine,
-                              image: entry.imageUris.normal || entry.imageUris.png,
-                            })
-                          }
-                        >
+                        <div key={`${entry.name}-${entry.id}`} className="deck-row">
                           <div className="deck-row-copy">
-                            {entry.imageUris.normal || entry.imageUris.png ? (
-                              <Image
-                                src={entry.imageUris.normal || entry.imageUris.png}
-                                alt={entry.name}
-                                width={80}
-                                height={112}
-                                className="deck-row-thumb"
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="deck-row-thumb deck-row-thumb-placeholder" />
-                            )}
+                            <div
+                              className="deck-row-thumb-trigger"
+                              onMouseEnter={() =>
+                                setPreviewCard({
+                                  name: entry.name,
+                                  typeLine: entry.typeLine,
+                                  image: entry.imageUris.normal || entry.imageUris.png,
+                                })
+                              }
+                              onMouseLeave={() => setHoverPreviewCard(null)}
+                            >
+                              {entry.imageUris.normal || entry.imageUris.png ? (
+                                <Image
+                                  src={entry.imageUris.normal || entry.imageUris.png}
+                                  alt={entry.name}
+                                  width={80}
+                                  height={112}
+                                  className="deck-row-thumb"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="deck-row-thumb deck-row-thumb-placeholder" />
+                              )}
+                            </div>
                             <div>
                               <span>{entry.name}</span>
                               <small>{entry.typeLine}</small>
@@ -896,48 +875,20 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
 
               <aside className="deck-preview-panel">
                 {activePreviewCard ? (
-                  <>
-                    {activePreviewCard.image ? (
-                      <Image
-                        src={activePreviewCard.image}
-                        alt={activePreviewCard.name}
-                        width={320}
-                        height={446}
-                        className="deck-preview-image"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="deck-preview-placeholder">
-                        <strong>{activePreviewCard.name}</strong>
-                        <p>{activePreviewCard.typeLine}</p>
-                      </div>
-                    )}
-                    <div className="deck-preview-meta">
-                      <strong>{activePreviewCard.name}</strong>
-                      <small>{activePreviewCard.typeLine}</small>
-                      <button
-                        type="button"
-                        className="ghost-button deck-preview-close"
-                        onClick={() => {
-                          setHoverPreviewCard(null);
-                          setPinnedPreviewCard(null);
-                        }}
-                      >
-                        Close preview
-                      </button>
-                    </div>
-                  </>
+                  activePreviewCard.image ? (
+                    <Image
+                      src={activePreviewCard.image}
+                      alt={activePreviewCard.name}
+                      width={320}
+                      height={446}
+                      className="deck-preview-image"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="deck-preview-placeholder" />
+                  )
                 ) : (
-                  <>
-                    <div className="deck-preview-placeholder deck-preview-placeholder-idle">
-                      <strong>Card preview</strong>
-                      <p>Hover over a card on desktop, or tap one on mobile, to read the full card.</p>
-                    </div>
-                    <div className="deck-preview-meta deck-preview-meta-idle">
-                      <strong>Preview area</strong>
-                      <small>The layout stays locked in place so the deck list does not shift while you browse.</small>
-                    </div>
-                  </>
+                  <div className="deck-preview-placeholder deck-preview-placeholder-idle" />
                 )}
               </aside>
             </div>

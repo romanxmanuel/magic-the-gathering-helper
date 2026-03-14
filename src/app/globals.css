@@ -313,7 +313,7 @@ input {
 .primary-button,
 .ghost-button,
 .mana-chip,
-.deck-row {
+.deck-row-thumb-trigger {
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -327,7 +327,7 @@ input {
 .result-item,
 .power-card,
 .suggestion-card,
-.deck-row {
+.deck-row-thumb-trigger {
   cursor: pointer;
 }
 
@@ -337,7 +337,7 @@ input {
 .primary-button::after,
 .ghost-button::after,
 .mana-chip::after,
-.deck-row::after {
+.deck-row-thumb-trigger::after {
   content: "";
   position: absolute;
   inset: -32%;
@@ -369,8 +369,8 @@ input {
 .ghost-button:focus-visible,
 .mana-chip:hover,
 .mana-chip:focus-visible,
-.deck-row:hover,
-.deck-row:focus-visible {
+.deck-row-thumb-trigger:hover,
+.deck-row-thumb-trigger:focus-visible {
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
   border-color: rgba(223, 193, 126, 0.4);
@@ -388,8 +388,8 @@ input {
 .ghost-button:focus-visible::after,
 .mana-chip:hover::after,
 .mana-chip:focus-visible::after,
-.deck-row:hover::after,
-.deck-row:focus-visible::after {
+.deck-row-thumb-trigger:hover::after,
+.deck-row-thumb-trigger:focus-visible::after {
   opacity: 1;
   transform: translate3d(165%, 0, 0) rotate(8deg);
 }
@@ -538,8 +538,13 @@ input {
   min-width: 0;
 }
 
-.deck-row-thumb {
+.deck-row-thumb-trigger {
+  display: flex;
   flex: none;
+  border-radius: 8px;
+}
+
+.deck-row-thumb {
   width: 40px;
   height: 56px;
   border-radius: 8px;
@@ -560,8 +565,6 @@ input {
 .deck-preview-panel {
   position: sticky;
   top: 1rem;
-  display: grid;
-  gap: 0.75rem;
 }
 
 .deck-preview-image,
@@ -578,40 +581,14 @@ input {
 }
 
 .deck-preview-placeholder {
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  text-align: center;
   background:
-    radial-gradient(circle at top, rgba(201, 164, 90, 0.2), transparent 45%),
+    radial-gradient(circle at top, rgba(201, 164, 90, 0.18), transparent 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 50%),
     linear-gradient(180deg, #121a1f 0%, #10151b 100%);
 }
 
 .deck-preview-placeholder-idle {
-  color: var(--muted);
-}
-
-.deck-preview-placeholder p,
-.deck-preview-meta small {
-  color: var(--muted);
-}
-
-.deck-preview-meta {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid rgba(223, 193, 126, 0.14);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.deck-preview-meta-idle {
-  min-height: 112px;
-  align-content: start;
-}
-
-.deck-preview-close {
-  width: 100%;
+  opacity: 0.7;
 }
 
 .danger-link {
