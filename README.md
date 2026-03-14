@@ -1,8 +1,8 @@
 # Magic the Gathering Helper
 
-Commander-first MTG deck builder with printable proxy sheets, meta-backed recommendations, combo-pressure checks, and a deck list you can actually tune without fighting the UI.
+Commander-first deck builder for building EDH shells, tuning them by power, checking combo pressure, and printing true-size proxy sheets for playtesting.
 
-## Quick Start
+## Setup
 
 ```bash
 cd "C:\Users\lily7\Claude Code Projects\Magic the Gathering Helper"
@@ -10,85 +10,64 @@ npm install
 npm run dev
 ```
 
-## What It Does
+## What it does
 
-- Builds Commander/EDH deck shells around a chosen commander, color identity, and power target
-- Pulls in Commander meta context, synergy tags, and average deck-shape hints
-- Lets you add and remove cards manually after generation
-- Shows card thumbnails in the 100-card list and previews the full card on hover
-- Validates the list against Commander color identity and banned cards
-- Generates true-size 2.5in x 3.5in proxy sheets for printing and cutting
-- Uses Commander Spellbook to estimate combo pressure and bracket feel after the shell is built
+- Searches Commanders by name or color identity
+- Builds 100-card Commander shells from free MTG data sources
+- Tunes toward different power presets from battlecruiser to cooked
+- Pulls synergy and meta context from EDHREC
+- Pulls legal card data and high-resolution images from Scryfall
+- Pulls combo pressure and bracket-style reads from Commander Spellbook
+- Scrapes the official Commander banned list from Wizards of the Coast
+- Lets you tweak the list manually and print cut-ready 2.5in x 3.5in proxy sheets
 
-## Data Sources
+## Why this stack
 
-- `Scryfall`
-  Card data, commander legality, search, and high-quality card images
-- `EDHREC`
-  Commander meta, synergy recommendations, tags, and average deck composition signals
-- `Commander Spellbook`
-  Combo-aware commander signals and full-deck bracket estimation
-- `Wizards of the Coast`
-  Official Commander banned list source
+This project is designed to stay lightweight enough for Vercel while still feeling like a serious daily Commander tool.
 
-All of these are free online sources, which keeps the app lightweight enough to run cleanly on Vercel without a heavy local database.
+- `Scryfall` is the canonical source for card data, legality, oracle text, and print-quality art
+- `EDHREC` supplies Commander meta, recommendation panels, and focus tags
+- `Commander Spellbook` adds combo awareness, compact-line detection, and bracket pressure signals
+- `Wizards of the Coast` remains the official source for Commander ban-list copy
 
-## Product Highlights
+## Product flow
 
-### Commander-First Builder
+1. Pick a commander or start from a color identity.
+2. Choose a focus tag and power preset.
+3. Generate a Commander shell backed by EDHREC + Scryfall.
+4. Inspect mechanics primers, combo pressure, and Spellbook bracket reads.
+5. Add or remove cards manually.
+6. Open the print view and generate true-size playtest proxies.
 
-- Search by commander name
-- Discover commanders by color identity
-- Pick a power preset from `Battlecruiser`, `Focused`, `High Power`, or `Cooked`
-- Lean the shell toward a chosen EDHREC tag like tokens, blink, spellslinger, and more
+## Tech stack
 
-### Deck Tuning UI
-
-- Add custom cards with commander-legal search
-- Remove cards from the generated shell
-- Hover card thumbnails in the deck list to preview full-size art
-- Rebuild after tweaks when you want a refreshed combo/bracket read
-
-### Spellbook Intelligence
-
-- Shows commander-specific combo/profile signals
-- Estimates the generated deck’s bracket read from the actual list
-- Surfaces compact combo lines, Game Changers, and sharper patterns
-- Warns when the built shell looks stronger than the chosen preset
-
-### Printable Proxies
-
-- Dedicated print page
-- Standard MTG card size
-- Clean grid for cutting physical playtest proxies
-
-## Stack
-
-- Next.js 16
+- Next.js 16 App Router
 - React 19
 - TypeScript
-- Zustand
 - Tailwind CSS 4
-- Zod
+- Zustand for lightweight local persistence
 
-## Local Commands
+## Commands
 
 ```bash
 npm run dev
-npm run typecheck
-npm run lint
 npm run build
+npm run lint
+npm run typecheck
 ```
 
 ## Deployment
 
+This app does not require secret environment variables for the current feature set.
+
 ### GitHub
 
 ```bash
-git init -b main
 git add .
-git commit -m "Initial Commander deck builder"
-gh repo create RomanRavioli/magic-the-gathering-helper --public --source . --remote origin --push
+git commit -m "Build Commander-first MTG deck helper"
+git branch -M main
+git remote add origin https://github.com/<your-username>/magic-the-gathering-helper.git
+git push -u origin main
 ```
 
 ### Vercel
@@ -100,8 +79,9 @@ npx vercel --prod
 
 ## Notes
 
-- Deck state persists in the browser, which keeps the first version fast and cheap to host.
-- The codebase is structured so we can add synced accounts or a hosted database later without rebuilding the product from scratch.
+- Deck persistence is browser-local right now so the app stays cheap and fast to host.
+- The codebase is organized so a future shared deck store can move to libSQL or Turso without rewriting the UI.
+- Manual edits intentionally invalidate the live Spellbook bracket read until you rebuild the shell, so the combo-pressure signal stays honest.
 
 ## License
 

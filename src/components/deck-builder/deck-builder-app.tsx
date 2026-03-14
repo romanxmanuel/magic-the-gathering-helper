@@ -110,11 +110,17 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
 
   useEffect(() => {
     if (!selectedCommander) {
+      setHoverPreviewCard(null);
       return;
     }
 
     setSelectedColors(selectedCommander.colorIdentity);
     setCommanderQuery(selectedCommander.name);
+    setHoverPreviewCard({
+      name: selectedCommander.name,
+      typeLine: selectedCommander.typeLine,
+      image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
+    });
   }, [selectedCommander]);
 
   useEffect(() => {
