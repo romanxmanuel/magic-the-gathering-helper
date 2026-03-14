@@ -872,31 +872,28 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                   </div>
                 ))}
               </div>
-
-              <aside className="deck-preview-panel">
-                {activePreviewCard ? (
-                  activePreviewCard.image ? (
-                    <Image
-                      src={activePreviewCard.image}
-                      alt={activePreviewCard.name}
-                      width={320}
-                      height={446}
-                      className="deck-preview-image"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="deck-preview-placeholder" />
-                  )
-                ) : (
-                  <div className="deck-preview-placeholder deck-preview-placeholder-idle" />
-                )}
-              </aside>
             </div>
           ) : (
             <p className="empty-copy">The deck list will appear here after you select a commander and build a shell.</p>
           )}
         </div>
       </section>
+
+      {activePreviewCard?.image ? (
+        <div className="deck-preview-overlay" aria-hidden="true">
+          <div className="deck-preview-scrim" />
+          <div className="deck-preview-frame">
+            <Image
+              src={activePreviewCard.image}
+              alt={activePreviewCard.name}
+              width={488}
+              height={680}
+              className="deck-preview-image"
+              unoptimized
+            />
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
