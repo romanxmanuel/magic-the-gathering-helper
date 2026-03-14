@@ -105,22 +105,21 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
   const [cardResults, setCardResults] = useState<CardSummary[]>([]);
   const [commanderMeta, setCommanderMeta] = useState<CommanderMeta | null>(null);
   const [hoverPreviewCard, setHoverPreviewCard] = useState<HoverPreviewCard | null>(null);
+  const [pinnedPreviewCard, setPinnedPreviewCard] = useState<HoverPreviewCard | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!selectedCommander) {
       setHoverPreviewCard(null);
+      setPinnedPreviewCard(null);
       return;
     }
 
     setSelectedColors(selectedCommander.colorIdentity);
     setCommanderQuery(selectedCommander.name);
-    setHoverPreviewCard({
-      name: selectedCommander.name,
-      typeLine: selectedCommander.typeLine,
-      image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
-    });
+    setHoverPreviewCard(null);
+    setPinnedPreviewCard(null);
   }, [selectedCommander]);
 
   useEffect(() => {
@@ -266,15 +265,17 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
   const colorIdentityDisplay = selectedCommander
     ? formatColorIdentity(selectedCommander.colorIdentity)
     : formatColorIdentity(selectedColors);
-  const activePreviewCard =
-    hoverPreviewCard ??
-    (selectedCommander
-      ? {
-          name: selectedCommander.name,
-          typeLine: selectedCommander.typeLine,
-          image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
-        }
-      : null);
+  const activePreviewCard = hoverPreviewCard ?? pinnedPreviewCard;
+
+  function setPreviewCard(card: HoverPreviewCard) {
+    setHoverPreviewCard(card);
+  }
+
+  function togglePinnedPreviewCard(card: HoverPreviewCard) {
+    setPinnedPreviewCard((currentCard) =>
+      currentCard?.name === card.name ? null : card,
+    );
+  }
 
   function toggleColor(color: ManaColor) {
     setErrorMessage(null);
@@ -784,7 +785,10 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
           ) : null}
 
           {selectedCommander ? (
-            <div className="deck-list-shell">
+            <div
+              className="deck-list-shell"
+              onMouseLeave={() => setHoverPreviewCard(null)}
+            >
               <div className="deck-section-list">
                 <div className="deck-group">
                   <div className="deck-group-header">
@@ -794,7 +798,14 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                   <div
                     className="deck-row commander-row"
                     onMouseEnter={() =>
-                      setHoverPreviewCard({
+                      setPreviewCard({
+                        name: selectedCommander.name,
+                        typeLine: selectedCommander.typeLine,
+                        image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
+                      })
+                    }
+                    onClick={() =>
+                      togglePinnedPreviewCard({
                         name: selectedCommander.name,
                         typeLine: selectedCommander.typeLine,
                         image: selectedCommander.imageUris.normal || selectedCommander.imageUris.png,
@@ -802,13 +813,14 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                     }
                   >
                     <div className="deck-row-copy">
-                      {selectedCommander.imageUris.artCrop ? (
+                      {selectedCommander.imageUris.normal || selectedCommander.imageUris.png ? (
                         <Image
-                          src={selectedCommander.imageUris.artCrop}
-                          alt=""
-                          width={52}
-                          height={52}
+                          src={selectedCommander.imageUris.normal || selectedCommander.imageUris.png}
+                          alt={selectedCommander.name}
+                          width={80}
+                          height={112}
                           className="deck-row-thumb"
+                          unoptimized
                         />
                       ) : (
                         <div className="deck-row-thumb deck-row-thumb-placeholder" />
@@ -833,7 +845,14 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                           key={`${entry.name}-${entry.id}`}
                           className="deck-row"
                           onMouseEnter={() =>
-                            setHoverPreviewCard({
+                            setPreviewCard({
+                              name: entry.name,
+                              typeLine: entry.typeLine,
+                              image: entry.imageUris.normal || entry.imageUris.png,
+                            })
+                          }
+                          onClick={() =>
+                            togglePinnedPreviewCard({
                               name: entry.name,
                               typeLine: entry.typeLine,
                               image: entry.imageUris.normal || entry.imageUris.png,
@@ -841,13 +860,14 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                           }
                         >
                           <div className="deck-row-copy">
-                            {entry.imageUris.artCrop ? (
+                            {entry.imageUris.normal || entry.imageUris.png ? (
                               <Image
-                                src={entry.imageUris.artCrop}
-                                alt=""
-                                width={52}
-                                height={52}
+                                src={entry.imageUris.normal || entry.imageUris.png}
+                                alt={entry.name}
+                                width={80}
+                                height={112}
                                 className="deck-row-thumb"
+                                unoptimized
                               />
                             ) : (
                               <div className="deck-row-thumb deck-row-thumb-placeholder" />
@@ -857,7 +877,14 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                               <small>{entry.typeLine}</small>
                             </div>
                           </div>
-                          <button type="button" className="danger-link" onClick={() => removeCard(entry.name)}>
+                          <button
+                            type="button"
+                            className="danger-link"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              removeCard(entry.name);
+                            }}
+                          >
                             Remove
                           </button>
                         </div>
@@ -867,8 +894,9 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                 ))}
               </div>
 
-              <aside className="deck-preview-panel">
-                {activePreviewCard?.image ? (
+              {activePreviewCard ? (
+                <aside className="deck-preview-panel">
+                  {activePreviewCard.image ? (
                   <Image
                     src={activePreviewCard.image}
                     alt={activePreviewCard.name}
@@ -877,19 +905,28 @@ export function DeckBuilderApp({ initialBannedList }: DeckBuilderAppProps) {
                     className="deck-preview-image"
                     unoptimized
                   />
-                ) : (
-                  <div className="deck-preview-placeholder">
-                    <strong>{activePreviewCard?.name ?? "Card preview"}</strong>
-                    <p>{activePreviewCard?.typeLine ?? "Hover a card to preview it here."}</p>
-                  </div>
-                )}
-                {activePreviewCard ? (
+                  ) : (
+                    <div className="deck-preview-placeholder">
+                      <strong>{activePreviewCard.name}</strong>
+                      <p>{activePreviewCard.typeLine}</p>
+                    </div>
+                  )}
                   <div className="deck-preview-meta">
                     <strong>{activePreviewCard.name}</strong>
                     <small>{activePreviewCard.typeLine}</small>
+                    <button
+                      type="button"
+                      className="ghost-button deck-preview-close"
+                      onClick={() => {
+                        setHoverPreviewCard(null);
+                        setPinnedPreviewCard(null);
+                      }}
+                    >
+                      Close preview
+                    </button>
                   </div>
-                ) : null}
-              </aside>
+                </aside>
+              ) : null}
             </div>
           ) : (
             <p className="empty-copy">The deck list will appear here after you select a commander and build a shell.</p>
