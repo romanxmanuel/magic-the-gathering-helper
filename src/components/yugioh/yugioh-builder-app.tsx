@@ -414,6 +414,7 @@ export function YugiohBuilderApp() {
     }
 
     setErrorMessage(null);
+    clearDeck();
     setIsGenerating(true);
 
     try {
