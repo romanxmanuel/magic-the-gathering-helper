@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 
 import { YUGIOH_PRINT_PROFILE } from "@/lib/games/yugioh/print";
 import type { YugiohDeckEntry, YugiohDeckSection } from "@/lib/games/yugioh/types";
@@ -89,44 +89,52 @@ export function YugiohPrintSheet() {
       className="print-page-shell yugioh-print-shell ygo-builder-layout"
       style={{ ...style, minHeight: '100vh', padding: '2rem' }}
     >
-      <div className="ygo-welcome-panel no-print yugioh-print-toolbar" style={{ marginBottom: '2rem' }}>
-        <div className="ygo-welcome-copy" style={{ width: '100%' }}>
-          <div className="yugioh-print-toolbar-copy" style={{ marginBottom: '1.5rem' }}>
-            <h1 style={{ fontSize: '1.5rem', margin: '0 0 0.5rem 0', color: '#f8fafc' }}>{themeLabel} Print Sheet</h1>
-            <p style={{ color: '#94a3b8', margin: 0 }}>
-              {printableCards.length} proxy card{printableCards.length === 1 ? "" : "s"} laid out at{" "}
-              {YUGIOH_PRINT_PROFILE.cardWidthMm}mm x {YUGIOH_PRINT_PROFILE.cardHeightMm}mm for personal playtesting.
-            </p>
-          </div>
-
-          <div className="yugioh-print-toolbar-actions" style={{ display: 'flex', gap: '1rem' }}>
-            <Link href="/yugioh" className="ygo-section-action" style={{ textDecoration: 'none', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }}>
-              ← Back to Duel Forge
-            </Link>
-            <button type="button" className="ygo-end-turn-btn" onClick={() => window.print()} style={{ padding: '0.6rem 2rem' }}>
-              Print / Save as PDF
-            </button>
-          </div>
+      <div className="ygo-welcome-panel no-print yugioh-print-toolbar" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', margin: '0 0 0.4rem 0', color: '#f8fafc', fontFamily: 'var(--font-heading, serif)' }}>{themeLabel} — Print Sheet</h1>
+          <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.875rem' }}>
+            {printableCards.length} proxy card{printableCards.length === 1 ? '' : 's'} &middot; {YUGIOH_PRINT_PROFILE.cardWidthMm}&thinsp;×&thinsp;{YUGIOH_PRINT_PROFILE.cardHeightMm}&thinsp;mm &middot; 3&thinsp;cards per row
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0 }}>
+          <Link
+            href="/yugioh"
+            className="ygo-section-action"
+            style={{ textDecoration: 'none', padding: '0.6rem 1.2rem', fontSize: '0.9rem', display: 'inline-block' }}
+          >
+            ← Back to Duel Forge
+          </Link>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            style={{
+              background: 'linear-gradient(135deg, rgba(34,197,94,0.8), rgba(21,128,61,0.8))',
+              border: '1px solid rgba(74,222,128,0.5)',
+              borderRadius: '8px',
+              padding: '0.6rem 2rem',
+              color: '#fff',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            🖨 Print / Save as PDF
+          </button>
         </div>
       </div>
 
-      <section className="summary-grid yugioh-summary-grid no-print ygo-list-panel" style={{ display: 'flex', gap: '2rem', marginBottom: '2rem' }}>
-        <article className="summary-card" style={{ flex: 1 }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Main Deck</span>
-          <strong style={{ display: 'block', fontSize: '1.5rem', color: '#f8fafc' }}>{main.reduce((count, entry) => count + entry.quantity, 0)}</strong>
-        </article>
-        <article className="summary-card" style={{ flex: 1 }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Extra Deck</span>
-          <strong style={{ display: 'block', fontSize: '1.5rem', color: '#f8fafc' }}>{extra.reduce((count, entry) => count + entry.quantity, 0)}</strong>
-        </article>
-        <article className="summary-card" style={{ flex: 1 }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Side Deck</span>
-          <strong style={{ display: 'block', fontSize: '1.5rem', color: '#f8fafc' }}>{side.reduce((count, entry) => count + entry.quantity, 0)}</strong>
-        </article>
-        <article className="summary-card" style={{ flex: 1 }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Print Pages</span>
-          <strong style={{ display: 'block', fontSize: '1.5rem', color: '#4ade80' }}>{pages.length}</strong>
-        </article>
+      <section className="no-print ygo-list-panel" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        {[
+          { label: 'Main Deck', value: main.reduce((c, e) => c + e.quantity, 0), color: '#f8fafc' },
+          { label: 'Extra Deck', value: extra.reduce((c, e) => c + e.quantity, 0), color: '#f8fafc' },
+          { label: 'Side Deck', value: side.reduce((c, e) => c + e.quantity, 0), color: '#f8fafc' },
+          { label: 'Print Pages', value: pages.length, color: '#4ade80' },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem' }}>{label}</div>
+            <div style={{ fontSize: '2rem', fontWeight: 700, color }}>{value}</div>
+          </div>
+        ))}
       </section>
 
       <div className="yugioh-proxy-sheet-stack">
