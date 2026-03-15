@@ -323,6 +323,7 @@ export function YugiohBuilderApp() {
 
   function applyArchetype(archetype: YugiohArchetype) {
     setErrorMessage(null);
+    clearDeck();
     setThemeQuery(archetype.name);
     setResolvedArchetype(archetype.name);
     setSearchScope("theme");
@@ -330,6 +331,7 @@ export function YugiohBuilderApp() {
 
   function primeTheme(themeName: string) {
     setErrorMessage(null);
+    clearDeck();
     setArchetypeQuery(themeName);
     setThemeQuery(themeName);
     setResolvedArchetype(themeName);
