@@ -171,9 +171,7 @@ function DeckSectionPanel({
           ))}
         </div>
       ) : (
-        <p className="empty-copy">
-          No cards here yet. Add cards from search and the builder will keep the section organized for you.
-        </p>
+        <p className="empty-copy">Empty</p>
       )}
     </section>
   );
@@ -458,373 +456,178 @@ export function YugiohBuilderApp() {
   }
 
   return (
-    <div className="ygo-dashboard-layout ygo-builder-layout">
-      <section className="ygo-welcome-panel yugioh-builder-hero" style={{ padding: '2rem' }}>
-        <div className="hero-copy ygo-welcome-copy">
-          <h1 style={{ marginBottom: '1rem' }}>Yu-Gi-Oh Duel Forge</h1>
-          <p className="hero-description" style={{ color: '#cbd5e1', marginBottom: '1.5rem' }}>
-            Duel Forge is now a real archetype-first workspace. Lock a theme, bias the shell toward the field, rebuild
-            it in one click, and print the result when you want to test it physically.
-          </p>
-          <div className="status-row">
-            <span className="ygo-live-badge">Open Lab default</span>
-            <span className="ygo-live-badge">Meta-powered shells</span>
-          </div>
-        </div>
+    <div className="ygo-builder-layout ygo-forge-layout">
 
-        <div className="ygo-list-panel yugioh-source-panel" style={{ flexShrink: 0, width: '450px', background: 'rgba(15,23,42,0.6)' }}>
-          <p className="panel-kicker">Open Lab</p>
-          <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-heading)', margin: '0 0 0.5rem 0', color: '#f8fafc' }}>Duel Forge workspace</h2>
-          <p className="hero-description" style={{ fontSize: '0.85rem' }}>
-            Banlist pressure is intentionally off here. The generator is chasing structurally strong, anti-meta ideas,
-            then giving you clean rebuild paths instead of hiding the logic.
-          </p>
-          <div className="tag-row" style={{ marginTop: '1rem' }}>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => void generateShell()}
-              disabled={isGenerating}
-            >
-              {isGenerating ? "Generating shell..." : "Generate strongest shell"}
-            </button>
-            {canPrint ? (
-              <Link href="/yugioh/print" className="ygo-section-action">
-                Open print view
-              </Link>
-            ) : (
-              <span className="ygo-section-action" style={{ opacity: 0.5, cursor: 'not-allowed' }}>Open print view</span>
-            )}
-          </div>
+      {/* ── Top bar ── */}
+      <div className="ygo-forge-topbar">
+        <div className="ygo-forge-title">
+          <h1 className="ygo-forge-heading">Duel Forge</h1>
           {theme ? (
-            <div className="yugioh-theme-summary" style={{ marginTop: '1rem' }}>
-              <strong>{theme.resolvedArchetype ?? theme.query ?? "Theme in progress"}</strong>
-              <small>
-                {theme.resolvedBossCards.length > 0
-                  ? `Boss anchors: ${theme.resolvedBossCards.join(", ")}`
-                  : "Pick a standout monster or spell to sharpen the build's identity."}
-              </small>
-            </div>
+            <span className="ygo-forge-theme-pill">
+              {theme.resolvedArchetype ?? theme.query}
+            </span>
           ) : null}
         </div>
-      </section>
-
-      <section className="ygo-bottom-grid yugioh-builder-grid">
-        <div className="ygo-list-panel control-panel yugioh-control-stack">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Build stance</p>
-              <h2>Theme and tuning</h2>
-            </div>
-          </div>
-
-          <label className="field-label" htmlFor="yugioh-archetype-search">
-            Search archetypes
-          </label>
-          <div className="ygo-archetype-search-wrapper">
-            <input
-              id="yugioh-archetype-search"
-              className="app-input"
-              placeholder="Blue-Eyes, Sky Striker, Tenpai..."
-              value={archetypeQuery}
-              autoComplete="off"
-              onChange={(event) => {
-                setErrorMessage(null);
-                const nextValue = event.target.value;
-                setArchetypeQuery(nextValue);
-                setThemeQuery(nextValue);
-
-                if (nextValue.trim().length < 2) {
-                  setArchetypes([]);
-                  setArchetypeAudit([]);
-                }
-              }}
-            />
-
-            {showArchetypeResults && (archetypes.length > 0 || archetypeQuery.trim().length >= 2) ? (
-              <div className="ygo-archetype-dropdown">
-                {archetypes.map((archetype) => (
-                  <button
-                    key={archetype.id}
-                    type="button"
-                    className={`ygo-archetype-dropdown-item ${theme?.resolvedArchetype === archetype.name ? "active" : ""}`}
-                    onClick={() => {
-                      applyArchetype(archetype);
-                      setArchetypeQuery(archetype.name);
-                    }}
-                  >
-                    {archetype.previewCardImageUrl ? (
-                      <Image
-                        src={archetype.previewCardImageUrl}
-                        alt={archetype.previewCardName ?? archetype.name}
-                        width={38}
-                        height={55}
-                        className="ygo-archetype-thumb"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="ygo-archetype-thumb-placeholder">🃏</div>
-                    )}
-                    <div className="ygo-archetype-dropdown-copy">
-                      <span className="ygo-archetype-dropdown-name">{archetype.name}</span>
-                      {archetype.previewCardName && (
-                        <span className="ygo-archetype-dropdown-sub">e.g. {archetype.previewCardName}</span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-
-                {/* Freeform theme fallback */}
-                {archetypeQuery.trim().length >= 2 && (
-                  <button
-                    type="button"
-                    className="ygo-archetype-freeform-item"
-                    onClick={() => primeTheme(archetypeQuery.trim())}
-                  >
-                    <span>→</span>
-                    <span>Use &ldquo;{archetypeQuery.trim()}&rdquo; as a custom theme</span>
-                  </button>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="panel-header" style={{ marginTop: '0.5rem' }}>
-            <div>
-              <p className="panel-kicker">Turn order</p>
-              <h3>Are you going first or second?</h3>
-            </div>
-          </div>
-
-          <div className="yugioh-turn-toggle">
-            <button
-              type="button"
-              className={`yugioh-turn-card ${turnPreference === "going-first" ? "yugioh-turn-card-active" : ""}`}
-              onClick={() => setTurnPreference("going-first")}
-            >
-              <span className="yugioh-turn-icon">⚡</span>
-              <strong>Going First</strong>
-              <small>Build your board. Max combo ceiling, negation density, and extension.</small>
-            </button>
-            <button
-              type="button"
-              className={`yugioh-turn-card ${turnPreference === "going-second" ? "yugioh-turn-card-active" : ""}`}
-              onClick={() => setTurnPreference("going-second")}
-            >
-              <span className="yugioh-turn-icon">💥</span>
-              <strong>Going Second</strong>
-              <small>Crack their board. Board breakers, hand traps, and crack-back pressure.</small>
-            </button>
-          </div>
-
-          <div className="panel-header" style={{ marginTop: '1.25rem' }}>
-            <div>
-              <p className="panel-kicker">Strength</p>
-              <h3>How hard should it push?</h3>
-            </div>
-          </div>
-
-          <div className="yugioh-choice-grid">
-            {YUGIOH_STRENGTH_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`yugioh-choice-card ${strengthTarget === option.value ? "yugioh-choice-card-active" : ""}`}
-                onClick={() => setStrengthTarget(option.value)}
-              >
-                <strong>{option.title}</strong>
-                <small>{option.description}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel meta-panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Card search</p>
-              <h2>Feed the shell</h2>
-            </div>
-          </div>
-
-          <div className="yugioh-search-toolbar">
-            <label className="field-label" htmlFor="yugioh-card-search">
-              Search cards
-            </label>
-            {theme?.resolvedArchetype ? (
-              <div className="game-switcher yugioh-search-scope">
-                <button
-                  type="button"
-                  className={`game-switcher-link ${searchScope === "theme" ? "game-switcher-link-active" : ""}`}
-                  onClick={() => setSearchScope("theme")}
-                >
-                  Theme cards
-                </button>
-                <button
-                  type="button"
-                  className={`game-switcher-link ${searchScope === "all" ? "game-switcher-link-active" : ""}`}
-                  onClick={() => setSearchScope("all")}
-                >
-                  All cards
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <input
-            id="yugioh-card-search"
-            className="app-input"
-            placeholder={
-              themeScopedArchetype
-                ? `Search inside ${themeScopedArchetype}...`
-                : "Search any Yu-Gi-Oh card to add into the shell..."
-            }
-            value={cardQuery}
-            onChange={(event) => {
-              setErrorMessage(null);
-              const nextValue = event.target.value;
-              setCardQuery(nextValue);
-
-              if (nextValue.trim().length < 2) {
-                setCards([]);
-                setCardAudit([]);
-              }
-            }}
-          />
-
-          {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
-
-          {showCardResults && cards.length === 0 ? (
-            <div className="empty-state-card" style={{ marginTop: '0.75rem' }}>
-              <strong>No cards found</strong>
-              <p className="empty-copy">
-                {themeScopedArchetype
-                  ? `No results in ${themeScopedArchetype}. Switch to "All cards" to search the full card pool.`
-                  : "No cards matched that search. Try a different name or partial keyword."}
-              </p>
-            </div>
+        <div className="ygo-forge-actions">
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => void generateShell()}
+            disabled={isGenerating}
+          >
+            {isGenerating ? "Generating..." : "⚡ Generate"}
+          </button>
+          {canPrint ? (
+            <Link href="/yugioh/print" className="ghost-button">Print</Link>
           ) : null}
+          {totalDeckCards > 0 ? (
+            <button type="button" className="ghost-button" onClick={handleExportYdk}>
+              Export .ydk
+            </button>
+          ) : null}
+          {totalDeckCards > 0 ? (
+            <button type="button" className="ghost-button ygo-forge-clear" onClick={() => clearDeck()}>
+              Clear
+            </button>
+          ) : null}
+        </div>
+      </div>
 
-          {showCardResults && cards.length > 0 ? (
-            <>
-              <div className="ygo-compact-result-list">
-                {cards.map((card) => {
-                  const suggestedSection = inferDeckSection(card);
-                  const suggestedCopies =
-                    suggestedSection === "extra" ? countCopies(extra, card.id) : countCopies(main, card.id);
-                  const sideCopies = countCopies(side, card.id);
-                  const bossCardSelected = theme?.resolvedBossCards.includes(card.name) ?? false;
+      {errorMessage ? <p className="error-copy ygo-forge-error">{errorMessage}</p> : null}
 
-                  return (
-                    <div 
-                      key={card.id} 
-                      className="ygo-compact-card-item"
+      {/* ── 3-column layout ── */}
+      <div className="ygo-forge-columns">
+
+        {/* LEFT — Controls */}
+        <div className="ygo-forge-left">
+
+          {/* Theme */}
+          <div className="ygo-forge-control-block">
+            <p className="ygo-forge-label">Theme</p>
+            <div className="ygo-archetype-search-wrapper">
+              <input
+                id="yugioh-archetype-search"
+                className="app-input"
+                placeholder="Blue-Eyes, Sky Striker, Tenpai..."
+                value={archetypeQuery}
+                autoComplete="off"
+                onChange={(event) => {
+                  setErrorMessage(null);
+                  const nextValue = event.target.value;
+                  setArchetypeQuery(nextValue);
+                  setThemeQuery(nextValue);
+                  if (nextValue.trim().length < 2) {
+                    setArchetypes([]);
+                    setArchetypeAudit([]);
+                  }
+                }}
+              />
+              {showArchetypeResults && (archetypes.length > 0 || archetypeQuery.trim().length >= 2) ? (
+                <div className="ygo-archetype-dropdown">
+                  {archetypes.map((archetype) => (
+                    <button
+                      key={archetype.id}
+                      type="button"
+                      className={`ygo-archetype-dropdown-item ${theme?.resolvedArchetype === archetype.name ? "active" : ""}`}
+                      onClick={() => {
+                        applyArchetype(archetype);
+                        setArchetypeQuery(archetype.name);
+                      }}
                     >
-                      <div
-                        style={{ cursor: 'pointer', flexShrink: 0, display: 'flex' }}
-                        onMouseEnter={() => setHoverPreviewCard({
-                          name: card.name,
-                          typeLine: card.typeLine,
-                          image: card.images.full || card.images.small || "",
-                          desc: card.desc,
-                        })}
-                        onMouseLeave={() => setHoverPreviewCard(null)}
-                      >
-                        {card.images.small ? (
-                          <Image
-                            src={card.images.small}
-                            alt={card.name}
-                            width={48}
-                            height={70}
-                            className="ygo-compact-card-thumb"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="ygo-compact-card-thumb" style={{display: 'grid', placeItems: 'center', fontSize: '10px', color: '#64748b', border: '1px solid rgba(255,255,255,0.1)'}}>No img</div>
+                      {archetype.previewCardImageUrl ? (
+                        <Image
+                          src={archetype.previewCardImageUrl}
+                          alt={archetype.previewCardName ?? archetype.name}
+                          width={38}
+                          height={55}
+                          className="ygo-archetype-thumb"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="ygo-archetype-thumb-placeholder">🃏</div>
+                      )}
+                      <div className="ygo-archetype-dropdown-copy">
+                        <span className="ygo-archetype-dropdown-name">{archetype.name}</span>
+                        {archetype.previewCardName && (
+                          <span className="ygo-archetype-dropdown-sub">e.g. {archetype.previewCardName}</span>
                         )}
                       </div>
-                      
-                      <div className="ygo-compact-card-copy">
-                        <strong>{card.name} {card.archetype ? <span style={{opacity: 0.5}}>- {card.archetype}</span> : null}</strong>
-                        <small>{card.typeLine}</small>
-                        <div className="ygo-compact-card-stats">
-                          {card.attribute ? <span>{card.attribute}</span> : null}
-                          {card.race ? <span>{card.race}</span> : null}
-                          {card.levelRankLink ? <span>L/R/L: {card.levelRankLink}</span> : null}
-                          {card.atk !== null ? <span>ATK: {card.atk}</span> : null}
-                          {card.def !== null ? <span>DEF: {card.def}</span> : null}
-                        </div>
-                      </div>
-
-                      <div className="ygo-compact-card-actions">
-                        <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => addCard(card, suggestedSection)}>
-                          Add{suggestedCopies > 0 ? ` (${suggestedCopies})` : ""}
-                        </button>
-                        <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => addCard(card, "side")}>
-                          Side{sideCopies > 0 ? ` (${sideCopies})` : ""}
-                        </button>
-                        <button
-                          type="button"
-                          className={`ygo-filter-chip ${bossCardSelected ? "tag-pill-active" : ""}`}
-                          style={{padding: '0.2rem 0.5rem', margin: 0, background: bossCardSelected ? 'rgba(59, 130, 246, 0.4)' : undefined, color: bossCardSelected ? '#fff' : undefined}}
-                          onClick={() => anchorCard(card)}
-                        >
-                          Anchor
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <SourceAuditBlock sourceAudit={cardAudit} />
-            </>
-          ) : !showCardResults ? (
-            <div className="empty-state-card">
-              <strong>Add cards manually</strong>
-              <p className="empty-copy">
-                Search to add hand traps, off-theme tech, or specific engine pieces. Use "Theme cards" to browse only cards from your chosen archetype, or "All cards" to search everything.
-              </p>
+                    </button>
+                  ))}
+                  {archetypeQuery.trim().length >= 2 && (
+                    <button
+                      type="button"
+                      className="ygo-archetype-freeform-item"
+                      onClick={() => primeTheme(archetypeQuery.trim())}
+                    >
+                      <span>→</span>
+                      <span>Use &ldquo;{archetypeQuery.trim()}&rdquo; as custom theme</span>
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="ygo-bottom-grid yugioh-workspace-grid" style={{ gridTemplateColumns: 'minmax(350px, 1fr) 2fr' }}>
-        <div className="ygo-list-panel meta-panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Structural readout</p>
-              <h2>What the shell is telling us</h2>
+            <div className="ygo-forge-seeds">
+              {STARTER_THEME_SEEDS.map((seed) => (
+                <button
+                  key={seed}
+                  type="button"
+                  className={`ygo-forge-seed ${theme?.resolvedArchetype === seed ? "active" : ""}`}
+                  onClick={() => { setArchetypeQuery(seed); primeTheme(seed); }}
+                >
+                  {seed}
+                </button>
+              ))}
             </div>
-            <span className="status-pill">Score {readout.finalScore}</span>
           </div>
 
-          {buildNotes.length > 0 ? (
-            <div className="yugioh-generation-block">
-              <div className="panel-header">
-                <div>
-                  <p className="panel-kicker">Generation notes</p>
-                  <h3>Why this shell looks like this</h3>
-                </div>
-              </div>
-              <div className="yugioh-note-list">
-                {buildNotes.map((note) => (
-                  <article key={note} className="summary-card yugioh-signal-card yugioh-signal-card-neutral">
-                    <p className="empty-copy">{note}</p>
-                  </article>
-                ))}
-              </div>
+          {/* Turn order */}
+          <div className="ygo-forge-control-block">
+            <p className="ygo-forge-label">Turn order</p>
+            <div className="yugioh-turn-toggle">
+              <button
+                type="button"
+                className={`yugioh-turn-card ${turnPreference === "going-first" ? "yugioh-turn-card-active" : ""}`}
+                onClick={() => setTurnPreference("going-first")}
+              >
+                <span className="yugioh-turn-icon">⚡</span>
+                <strong>Going First</strong>
+                <small>Board builder. Max combo ceiling.</small>
+              </button>
+              <button
+                type="button"
+                className={`yugioh-turn-card ${turnPreference === "going-second" ? "yugioh-turn-card-active" : ""}`}
+                onClick={() => setTurnPreference("going-second")}
+              >
+                <span className="yugioh-turn-icon">💥</span>
+                <strong>Going Second</strong>
+                <small>Board cracker. Breakers + hand traps.</small>
+              </button>
             </div>
-          ) : null}
+          </div>
 
+          {/* Strength */}
+          <div className="ygo-forge-control-block">
+            <p className="ygo-forge-label">Strength</p>
+            <div className="ygo-forge-strength-row">
+              {YUGIOH_STRENGTH_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`ygo-forge-strength-pill ${strengthTarget === option.value ? "active" : ""}`}
+                  onClick={() => setStrengthTarget(option.value)}
+                  title={option.description}
+                >
+                  {option.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick rebuilds */}
           {showQuickRebuilds ? (
-            <div className="yugioh-generation-block">
-              <div className="panel-header">
-                <div>
-                  <p className="panel-kicker">Quick rebuilds</p>
-                  <h3>One-click tuning paths</h3>
-                </div>
-              </div>
+            <div className="ygo-forge-control-block">
+              <p className="ygo-forge-label">Quick rebuilds</p>
               <div className="yugioh-rebuild-grid">
                 {quickRebuildOptions.map((option) => (
                   <button
@@ -841,191 +644,38 @@ export function YugiohBuilderApp() {
               </div>
             </div>
           ) : null}
+        </div>
 
-          {!hasGeneratedShell && totalDeckCards === 0 ? (
-            <div className="empty-state-card">
-              <strong>Generate or hand-build a shell first</strong>
-              <p className="empty-copy">
-                This panel gets much smarter after the first generated list or a meaningful manual shell. That is when
-                rebuild paths, field context, and role distribution become genuinely useful.
-              </p>
-            </div>
-          ) : null}
+        {/* CENTER — Deck */}
+        <div className="ygo-forge-center">
 
-          {metaSnapshot ? (
-            <div className="yugioh-generation-block">
-              <div className="panel-header">
-                <div>
-                  <p className="panel-kicker">Meta snapshot</p>
-                  <h3>Live field context</h3>
-                </div>
-              </div>
-
-              <div className="summary-grid yugioh-summary-grid">
-                <article className="summary-card">
-                  <span>Matched Decks</span>
-                  <strong>{metaSnapshot.matchedDeckCount}</strong>
-                </article>
-                <article className="summary-card">
-                  <span>Field Sample</span>
-                  <strong>{metaSnapshot.fieldSampleSize}</strong>
-                </article>
-                <article className="summary-card">
-                  <span>Theme Query</span>
-                  <strong>{metaSnapshot.themeQuery}</strong>
-                </article>
-                <article className="summary-card">
-                  <span>Top Field Deck</span>
-                  <strong>{metaSnapshot.topFieldDecks[0]?.name ?? "N/A"}</strong>
-                </article>
-              </div>
-
-              <div className="yugioh-meta-chip-grid">
-                {metaSnapshot.topFieldDecks.map((entry) => (
-                  <article key={entry.name} className="summary-card yugioh-meta-chip">
-                    <strong>{entry.name}</strong>
-                    <small>{entry.count} lists in sample</small>
-                  </article>
-                ))}
-              </div>
-
-              {metaSnapshot.matchedDecks.length > 0 ? (
-                <div className="yugioh-sample-list">
-                  {metaSnapshot.matchedDecks.map((deck) => (
-                    <a
-                      key={deck.deckUrl}
-                      href={deck.deckUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="summary-card yugioh-sample-card"
-                    >
-                      <strong>{deck.deckName}</strong>
-                      <small>{[deck.tournamentName, deck.placement, deck.submitDateLabel].filter(Boolean).join(" | ")}</small>
-                    </a>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
+          {/* Stats + odds bar */}
           {totalDeckCards > 0 ? (
-            <div className="yugioh-opening-odds">
-              <p className="panel-kicker" style={{ marginBottom: '0.6rem' }}>Opening hand odds ({openingHandOdds.handSize}-card hand)</p>
-              <div className="yugioh-odds-strip">
-                <div className="yugioh-odds-item">
-                  <span className="yugioh-odds-label">Starter</span>
-                  <div className="yugioh-odds-bar-track">
-                    <div className="yugioh-odds-bar yugioh-odds-bar-starter" style={{ width: `${openingHandOdds.starterOdds}%` }} />
-                  </div>
-                  <span className={`yugioh-odds-pct ${openingHandOdds.starterOdds >= 80 ? "odds-good" : openingHandOdds.starterOdds >= 60 ? "odds-ok" : "odds-low"}`}>{openingHandOdds.starterOdds}%</span>
-                </div>
-                <div className="yugioh-odds-item">
-                  <span className="yugioh-odds-label">Hand Trap</span>
-                  <div className="yugioh-odds-bar-track">
-                    <div className="yugioh-odds-bar yugioh-odds-bar-trap" style={{ width: `${openingHandOdds.handTrapOdds}%` }} />
-                  </div>
-                  <span className={`yugioh-odds-pct ${openingHandOdds.handTrapOdds >= 75 ? "odds-good" : openingHandOdds.handTrapOdds >= 50 ? "odds-ok" : "odds-low"}`}>{openingHandOdds.handTrapOdds}%</span>
-                </div>
+            <div className="ygo-forge-stats-bar">
+              <span>Main <strong>{sumEntries(main)}</strong></span>
+              <span>Extra <strong>{sumEntries(extra)}</strong></span>
+              <span>Side <strong>{sumEntries(side)}</strong></span>
+              <span>Score <strong>{readout.finalScore}</strong></span>
+              <div className="ygo-forge-odds-inline">
+                <span className={openingHandOdds.starterOdds >= 80 ? "odds-good" : openingHandOdds.starterOdds >= 60 ? "odds-ok" : "odds-low"}>
+                  Starter {openingHandOdds.starterOdds}%
+                </span>
+                <span className={openingHandOdds.handTrapOdds >= 75 ? "odds-good" : openingHandOdds.handTrapOdds >= 50 ? "odds-ok" : "odds-low"}>
+                  HT {openingHandOdds.handTrapOdds}%
+                </span>
                 {openingHandOdds.breakerOdds > 0 ? (
-                  <div className="yugioh-odds-item">
-                    <span className="yugioh-odds-label">Breaker</span>
-                    <div className="yugioh-odds-bar-track">
-                      <div className="yugioh-odds-bar yugioh-odds-bar-breaker" style={{ width: `${openingHandOdds.breakerOdds}%` }} />
-                    </div>
-                    <span className={`yugioh-odds-pct ${openingHandOdds.breakerOdds >= 60 ? "odds-good" : openingHandOdds.breakerOdds >= 40 ? "odds-ok" : "odds-low"}`}>{openingHandOdds.breakerOdds}%</span>
-                  </div>
+                  <span className={openingHandOdds.breakerOdds >= 60 ? "odds-good" : openingHandOdds.breakerOdds >= 40 ? "odds-ok" : "odds-low"}>
+                    Breaker {openingHandOdds.breakerOdds}%
+                  </span>
                 ) : null}
               </div>
             </div>
           ) : null}
 
-          <div className="summary-grid yugioh-summary-grid">
-            <article className="summary-card">
-              <span>Main</span>
-              <strong>{sumEntries(main)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Extra</span>
-              <strong>{sumEntries(extra)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Side</span>
-              <strong>{sumEntries(side)}</strong>
-            </article>
-            <article className="summary-card">
-              <span>Score</span>
-              <strong>{readout.finalScore}</strong>
-            </article>
-          </div>
-
-          {totalDeckCards > 0 ? (
-            <div className="yugioh-role-map">
-              {roleBuckets.map((bucket) => (
-                <article key={bucket.id} className="summary-card yugioh-role-bucket">
-                  <span>{bucket.title}</span>
-                  <strong>{bucket.count}</strong>
-                  <small>{bucket.description}</small>
-                </article>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="yugioh-signal-list">
-            {readout.warnings.map((warning) => (
-              <article key={warning} className="summary-card yugioh-signal-card yugioh-signal-card-warn">
-                <strong>Warning</strong>
-                <p className="empty-copy">{warning}</p>
-              </article>
-            ))}
-
-            {readout.notes.map((note) => (
-              <article key={note} className="summary-card yugioh-signal-card yugioh-signal-card-good">
-                <strong>Read</strong>
-                <p className="empty-copy">{note}</p>
-              </article>
-            ))}
-          </div>
-
-          <SourceAuditBlock sourceAudit={sourceAudit} />
-        </div>
-
-        <div className="panel deck-panel yugioh-deck-workspace">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Deck workspace</p>
-              <h2>Persistent shell</h2>
-            </div>
-            <div className="tag-row">
-              {totalDeckCards > 0 ? (
-                <button type="button" className="ygo-filter-chip" onClick={handleExportYdk}>
-                  Export .ydk
-                </button>
-              ) : null}
-              {canPrint ? (
-                <Link href="/yugioh/print" className="ghost-button">
-                  Print proxies
-                </Link>
-              ) : (
-                <span className="ghost-button button-disabled">Print proxies</span>
-              )}
-              <button type="button" className="ghost-button" onClick={() => clearDeck()}>
-                Clear deck
-              </button>
-            </div>
-          </div>
-
-          <p className="empty-copy yugioh-workspace-copy">
-            Use the generated shell as a starting point, then tighten ratios, swap tech cards, and stress-test the
-            structure manually. This workspace is the tuning bench, not just a static output.
-          </p>
-
           {totalDeckCards === 0 ? (
             <div className="empty-state-card">
               <strong>No shell yet</strong>
-              <p className="empty-copy">
-                Pick a theme and generate a shell, or search cards and build by hand. The workspace becomes much easier
-                to read once at least the first 40-card idea is on the table.
-              </p>
+              <p className="empty-copy">Pick a theme on the left and hit Generate, or search cards on the right to hand-build.</p>
             </div>
           ) : null}
 
@@ -1059,8 +709,203 @@ export function YugiohBuilderApp() {
             />
           </div>
         </div>
-      </section>
 
+        {/* RIGHT — Card search + analysis */}
+        <div className="ygo-forge-right">
+
+          {/* Card search */}
+          <div className="ygo-forge-control-block">
+            <div className="ygo-forge-search-header">
+              <p className="ygo-forge-label">Card search</p>
+              {theme?.resolvedArchetype ? (
+                <div className="game-switcher yugioh-search-scope">
+                  <button
+                    type="button"
+                    className={`game-switcher-link ${searchScope === "theme" ? "game-switcher-link-active" : ""}`}
+                    onClick={() => setSearchScope("theme")}
+                  >
+                    Theme
+                  </button>
+                  <button
+                    type="button"
+                    className={`game-switcher-link ${searchScope === "all" ? "game-switcher-link-active" : ""}`}
+                    onClick={() => setSearchScope("all")}
+                  >
+                    All
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <input
+              id="yugioh-card-search"
+              className="app-input"
+              placeholder={themeScopedArchetype ? `Search inside ${themeScopedArchetype}...` : "Search any card..."}
+              value={cardQuery}
+              onChange={(event) => {
+                setErrorMessage(null);
+                const nextValue = event.target.value;
+                setCardQuery(nextValue);
+                if (nextValue.trim().length < 2) {
+                  setCards([]);
+                  setCardAudit([]);
+                }
+              }}
+            />
+            {showCardResults && cards.length === 0 ? (
+              <p className="empty-copy" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+                {themeScopedArchetype ? `Nothing in ${themeScopedArchetype}. Switch to All.` : "No matches."}
+              </p>
+            ) : null}
+            {showCardResults && cards.length > 0 ? (
+              <>
+                <div className="ygo-compact-result-list">
+                  {cards.map((card) => {
+                    const suggestedSection = inferDeckSection(card);
+                    const suggestedCopies =
+                      suggestedSection === "extra" ? countCopies(extra, card.id) : countCopies(main, card.id);
+                    const sideCopies = countCopies(side, card.id);
+                    const bossCardSelected = theme?.resolvedBossCards.includes(card.name) ?? false;
+
+                    return (
+                      <div key={card.id} className="ygo-compact-card-item">
+                        <div
+                          style={{ cursor: 'pointer', flexShrink: 0, display: 'flex' }}
+                          onMouseEnter={() => setHoverPreviewCard({
+                            name: card.name,
+                            typeLine: card.typeLine,
+                            image: card.images.full || card.images.small || "",
+                            desc: card.desc,
+                          })}
+                          onMouseLeave={() => setHoverPreviewCard(null)}
+                        >
+                          {card.images.small ? (
+                            <Image
+                              src={card.images.small}
+                              alt={card.name}
+                              width={48}
+                              height={70}
+                              className="ygo-compact-card-thumb"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="ygo-compact-card-thumb" style={{display: 'grid', placeItems: 'center', fontSize: '10px', color: '#64748b', border: '1px solid rgba(255,255,255,0.1)'}}>No img</div>
+                          )}
+                        </div>
+                        <div className="ygo-compact-card-copy">
+                          <strong>{card.name}</strong>
+                          <small>{card.typeLine}</small>
+                        </div>
+                        <div className="ygo-compact-card-actions">
+                          <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => addCard(card, suggestedSection)}>
+                            +{suggestedCopies > 0 ? suggestedCopies : ""}
+                          </button>
+                          <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => addCard(card, "side")}>
+                            S{sideCopies > 0 ? sideCopies : ""}
+                          </button>
+                          <button
+                            type="button"
+                            className={`ygo-filter-chip ${bossCardSelected ? "tag-pill-active" : ""}`}
+                            style={{padding: '0.2rem 0.5rem', margin: 0, background: bossCardSelected ? 'rgba(59, 130, 246, 0.4)' : undefined, color: bossCardSelected ? '#fff' : undefined}}
+                            onClick={() => anchorCard(card)}
+                            title="Anchor as boss card"
+                          >
+                            ⚓
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <SourceAuditBlock sourceAudit={cardAudit} />
+              </>
+            ) : null}
+          </div>
+
+          {/* Role breakdown */}
+          {totalDeckCards > 0 ? (
+            <div className="ygo-forge-control-block">
+              <p className="ygo-forge-label">Role breakdown</p>
+              <div className="yugioh-role-map">
+                {roleBuckets.map((bucket) => (
+                  <article key={bucket.id} className="summary-card yugioh-role-bucket">
+                    <span>{bucket.title}</span>
+                    <strong>{bucket.count}</strong>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Warnings + reads */}
+          {totalDeckCards > 0 && (readout.warnings.length > 0 || readout.notes.length > 0) ? (
+            <div className="ygo-forge-control-block">
+              <p className="ygo-forge-label">Reads</p>
+              <div className="yugioh-signal-list">
+                {readout.warnings.map((warning) => (
+                  <article key={warning} className="summary-card yugioh-signal-card yugioh-signal-card-warn">
+                    <strong>⚠</strong>
+                    <p className="empty-copy">{warning}</p>
+                  </article>
+                ))}
+                {readout.notes.map((note) => (
+                  <article key={note} className="summary-card yugioh-signal-card yugioh-signal-card-good">
+                    <p className="empty-copy">{note}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Generation notes */}
+          {buildNotes.length > 0 ? (
+            <div className="ygo-forge-control-block">
+              <p className="ygo-forge-label">Generation notes</p>
+              <div className="yugioh-note-list">
+                {buildNotes.map((note) => (
+                  <article key={note} className="summary-card yugioh-signal-card yugioh-signal-card-neutral">
+                    <p className="empty-copy">{note}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Meta field */}
+          {metaSnapshot ? (
+            <div className="ygo-forge-control-block">
+              <p className="ygo-forge-label">Meta field — {metaSnapshot.matchedDeckCount} matched</p>
+              <div className="yugioh-meta-chip-grid">
+                {metaSnapshot.topFieldDecks.map((entry) => (
+                  <article key={entry.name} className="summary-card yugioh-meta-chip">
+                    <strong>{entry.name}</strong>
+                    <small>{entry.count} lists</small>
+                  </article>
+                ))}
+              </div>
+              {metaSnapshot.matchedDecks.length > 0 ? (
+                <div className="yugioh-sample-list" style={{ marginTop: '0.5rem' }}>
+                  {metaSnapshot.matchedDecks.slice(0, 4).map((deck) => (
+                    <a
+                      key={deck.deckUrl}
+                      href={deck.deckUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="summary-card yugioh-sample-card"
+                    >
+                      <strong>{deck.deckName}</strong>
+                      <small>{[deck.tournamentName, deck.placement].filter(Boolean).join(" | ")}</small>
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <SourceAuditBlock sourceAudit={sourceAudit} />
+        </div>
+      </div>
+
+      {/* Hover overlay */}
       {hoverPreviewCard?.image ? (
         <div className="deck-preview-overlay" aria-hidden="true" style={{ zIndex: 100 }}>
           <div className="deck-preview-scrim" />
