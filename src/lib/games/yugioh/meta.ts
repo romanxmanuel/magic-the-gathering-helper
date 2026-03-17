@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { SourceAudit } from "@/lib/games/shared/types";
 import type {
+  YugiohDeckVersionOption,
   YugiohMetaArchetypeStat,
   YugiohMetaDeckSample,
   YugiohMetaSnapshot,
@@ -132,14 +133,82 @@ function countDeckNames(decks: YugiohMetaDeckRecord[]) {
     .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
 }
 
+export function slugifyDeckVersionLabel(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function normalizeDeckVersionLabel(deckName: string, themeQuery: string) {
+  const cleaned = deckName
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\b(202\d|20\d\d)\b/g, " ")
+    .replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?\b/gi, " ")
+    .replace(/\b(v\d+|version \d+)\b/gi, " ")
+    .replace(/\b(tcg|ocg|master duel|open lab|format)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return themeQuery || "Core build";
+  }
+
+  return cleaned;
+}
+
+function buildDeckVersions(matchedDecks: YugiohMetaDeckRecord[], themeQuery: string) {
+  const grouped = new Map<string, { label: string; count: number; sampleDecks: YugiohMetaDeckSample[] }>();
+
+  for (const deck of matchedDecks) {
+    const label = normalizeDeckVersionLabel(deck.deckName, themeQuery);
+    const id = slugifyDeckVersionLabel(label) || "core-build";
+    const existing = grouped.get(id);
+    const sample: YugiohMetaDeckSample = {
+      deckName: deck.deckName,
+      deckUrl: deck.deckUrl,
+      tournamentName: deck.tournamentName,
+      placement: deck.placement,
+      submitDateLabel: deck.submitDateLabel,
+    };
+
+    if (existing) {
+      existing.count += 1;
+      if (existing.sampleDecks.length < 3) {
+        existing.sampleDecks.push(sample);
+      }
+      continue;
+    }
+
+    grouped.set(id, {
+      label,
+      count: 1,
+      sampleDecks: [sample],
+    });
+  }
+
+  return [...grouped.entries()]
+    .map(([id, value]): YugiohDeckVersionOption => ({
+      id,
+      label: value.label,
+      count: value.count,
+      sampleDecks: value.sampleDecks,
+    }))
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .slice(0, 6);
+}
+
 export function buildYugiohMetaSnapshot({
   themeQuery,
   matchedDecks,
   fieldDecks,
+  selectedDeckVersion,
 }: {
   themeQuery: string;
   matchedDecks: YugiohMetaDeckRecord[];
   fieldDecks: YugiohMetaDeckRecord[];
+  selectedDeckVersion?: string | null;
 }): YugiohMetaSnapshot {
   const topFieldDecks: YugiohMetaArchetypeStat[] = countDeckNames(fieldDecks).slice(0, 6);
   const matchedDeckSamples: YugiohMetaDeckSample[] = matchedDecks.slice(0, 5).map((deck) => ({
@@ -149,6 +218,7 @@ export function buildYugiohMetaSnapshot({
     placement: deck.placement,
     submitDateLabel: deck.submitDateLabel,
   }));
+  const deckVersions = buildDeckVersions(matchedDecks, themeQuery);
 
   return {
     themeQuery,
@@ -156,5 +226,7 @@ export function buildYugiohMetaSnapshot({
     fieldSampleSize: fieldDecks.length,
     topFieldDecks,
     matchedDecks: matchedDeckSamples,
+    deckVersions,
+    selectedDeckVersion: selectedDeckVersion ?? null,
   };
 }

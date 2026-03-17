@@ -2,6 +2,8 @@ import { createStructuralReadout, inferCardRoles } from "@/lib/games/yugioh/buil
 import {
   buildYugiohMetaSnapshot,
   fetchTournamentMetaDecks,
+  normalizeDeckVersionLabel,
+  slugifyDeckVersionLabel,
   type YugiohMetaDeckRecord,
 } from "@/lib/games/yugioh/meta";
 import type { SourceAudit } from "@/lib/games/shared/types";
@@ -10,6 +12,7 @@ import type {
   YugiohCard,
   YugiohConstraint,
   YugiohDeckEntry,
+  YugiohDeckSeed,
   YugiohDeckSection,
   YugiohGeneratedDeckResponse,
   YugiohStrengthTarget,
@@ -33,6 +36,31 @@ type RankedCandidate = {
   rationale: string;
 };
 
+type ThemeSignals = {
+  labels: string[];
+  archetypes: string[];
+  anchors: string[];
+  queries: string[];
+  primaryLabel: string;
+};
+
+function filterDecksByPreferredVersion(
+  decks: YugiohMetaDeckRecord[],
+  themeQuery: string,
+  preferredDeckVersion: string | null | undefined,
+) {
+  if (!preferredDeckVersion) {
+    return decks;
+  }
+
+  const filtered = decks.filter((deck) => {
+    const label = normalizeDeckVersionLabel(deck.deckName, themeQuery);
+    return slugifyDeckVersionLabel(label) === preferredDeckVersion;
+  });
+
+  return filtered.length > 0 ? filtered : decks;
+}
+
 function uniqueStrings(values: Array<string | null | undefined>) {
   return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
 }
@@ -49,12 +77,39 @@ function isTrapCard(card: YugiohCard) {
   return /Trap/i.test(card.typeLine);
 }
 
-function matchesTheme(card: YugiohCard, theme: YugiohThemeSelection) {
-  if (theme.resolvedArchetype && card.archetype?.toLowerCase() === theme.resolvedArchetype.toLowerCase()) {
+function buildThemeSignals(theme: YugiohThemeSelection, anchorCards: YugiohCard[] = [], seedCards: YugiohCard[] = []): ThemeSignals {
+  const anchorArchetypes = anchorCards.map((card) => card.archetype).filter((value): value is string => Boolean(value));
+  const seedArchetypes = seedCards.map((card) => card.archetype).filter((value): value is string => Boolean(value));
+  const seedNames = seedCards.map((card) => card.name).slice(0, 6);
+  const anchors = uniqueStrings(theme.resolvedBossCards);
+  const anchoredThemes = uniqueStrings(theme.resolvedSupportCards);
+  const archetypes = uniqueStrings([theme.resolvedArchetype, ...anchoredThemes, ...anchorArchetypes, ...seedArchetypes]);
+  const labels = uniqueStrings([...anchoredThemes, ...anchors, ...seedNames, theme.query]);
+  const queries = uniqueStrings([
+    theme.resolvedArchetype,
+    ...anchoredThemes,
+    ...anchors,
+    ...anchorArchetypes,
+    ...seedArchetypes,
+    ...seedNames,
+    theme.query,
+  ]);
+
+  return {
+    labels,
+    archetypes,
+    anchors,
+    queries,
+    primaryLabel: labels[0] ?? "this deck",
+  };
+}
+
+function matchesTheme(card: YugiohCard, signals: ThemeSignals) {
+  if (signals.archetypes.some((archetype) => card.archetype?.toLowerCase() === archetype.toLowerCase())) {
     return true;
   }
 
-  return theme.resolvedBossCards.some((bossCard) => bossCard.toLowerCase() === card.name.toLowerCase());
+  return signals.anchors.some((bossCard) => bossCard.toLowerCase() === card.name.toLowerCase());
 }
 
 function buildStats(decks: YugiohMetaDeckRecord[], section: YugiohDeckSection) {
@@ -101,34 +156,29 @@ function collectTopIds(stats: CardStats[], count: number) {
   return stats.slice(0, count).map((entry) => entry.cardId);
 }
 
-async function resolveThemeMeta(theme: YugiohThemeSelection) {
-  const queries = uniqueStrings([
-    theme.resolvedArchetype,
-    theme.resolvedBossCards[0],
-    theme.query,
-  ]);
+async function resolveThemeMeta(queries: string[]) {
   const deckMap = new Map<string, YugiohMetaDeckRecord>();
+  const decksByQuery = new Map<string, YugiohMetaDeckRecord[]>();
   const sourceAudit: SourceAudit[] = [];
+  const perQueryLimit = queries.length > 1 ? 8 : 12;
 
   for (const query of queries) {
     const response = await fetchTournamentMetaDecks({
       query,
-      limit: 12,
+      limit: perQueryLimit,
     });
 
     sourceAudit.push(...response.sourceAudit);
+    decksByQuery.set(query, response.decks);
 
     for (const deck of response.decks) {
       deckMap.set(deck.deckUrl, deck);
-    }
-
-    if (deckMap.size >= 12) {
-      break;
     }
   }
 
   return {
     decks: [...deckMap.values()],
+    decksByQuery,
     sourceAudit,
   };
 }
@@ -231,21 +281,18 @@ function desiredCopies({
 }
 
 function buildReadableRationale({
-  card,
   roles,
   deckAppearances,
   sampleSize,
   fieldLevel,
-  theme,
+  themeLabel,
 }: {
-  card: YugiohCard;
   roles: ReturnType<typeof inferCardRoles>;
   deckAppearances: number;
   sampleSize: number;
   fieldLevel: "theme" | "field";
-  theme: YugiohThemeSelection;
+  themeLabel: string;
 }): string {
-  const themeLabel = theme.resolvedArchetype ?? theme.resolvedBossCards[0] ?? theme.query.trim();
   const appearanceText =
     fieldLevel === "theme"
       ? `In ${deckAppearances}/${sampleSize} ${themeLabel} tournament lists.`
@@ -293,6 +340,7 @@ function rankedCandidatesFromStats({
   cardMap,
   section,
   theme,
+  signals,
   buildIntent,
   constraints,
   sampleSize,
@@ -302,6 +350,7 @@ function rankedCandidatesFromStats({
   cardMap: Map<number, YugiohCard>;
   section: YugiohDeckSection;
   theme: YugiohThemeSelection;
+  signals: ThemeSignals;
   buildIntent: YugiohBuildIntent;
   constraints: YugiohConstraint[];
   sampleSize: number;
@@ -318,12 +367,16 @@ function rankedCandidatesFromStats({
       const roles = inferCardRoles(card, theme, section);
       let score = entry.deckAppearances * 12 + entry.averageCopies * 6;
 
-      if (fieldLevel === "theme" && matchesTheme(card, theme)) {
+      if (fieldLevel === "theme" && matchesTheme(card, signals)) {
         score += 14;
       }
 
-      if (theme.resolvedBossCards.some((bossCard) => bossCard.toLowerCase() === card.name.toLowerCase())) {
+      if (signals.anchors.some((bossCard) => bossCard.toLowerCase() === card.name.toLowerCase())) {
         score += 20;
+      }
+
+      if (signals.archetypes.some((archetype) => archetype.toLowerCase() === (card.archetype?.toLowerCase() ?? ""))) {
+        score += fieldLevel === "theme" ? 18 : 10;
       }
 
       if (buildIntent === "anti-meta" && (roles.includes("hand-trap") || roles.includes("board-breaker"))) {
@@ -346,7 +399,7 @@ function rankedCandidatesFromStats({
         score += 10;
       }
 
-      if (buildIntent === "pure" && fieldLevel === "theme" && matchesTheme(card, theme)) {
+      if (buildIntent === "pure" && fieldLevel === "theme" && matchesTheme(card, signals)) {
         score += 8;
       }
 
@@ -372,14 +425,26 @@ function rankedCandidatesFromStats({
         averageCopies: entry.averageCopies,
         deckAppearances: entry.deckAppearances,
         section,
-        rationale: buildReadableRationale({ card, roles, deckAppearances: entry.deckAppearances, sampleSize, fieldLevel, theme }),
+        rationale: buildReadableRationale({
+          roles,
+          deckAppearances: entry.deckAppearances,
+          sampleSize,
+          fieldLevel,
+          themeLabel: signals.labels.join(" + ") || signals.primaryLabel,
+        }),
       } satisfies RankedCandidate;
     })
     .filter((candidate): candidate is RankedCandidate => Boolean(candidate))
     .sort((left, right) => right.score - left.score || left.card.name.localeCompare(right.card.name));
 }
 
-function upsertEntry(entries: YugiohDeckEntry[], candidate: RankedCandidate, copies: number, theme: YugiohThemeSelection) {
+function upsertEntry(
+  entries: YugiohDeckEntry[],
+  candidate: RankedCandidate,
+  copies: number,
+  theme: YugiohThemeSelection,
+  signals: ThemeSignals,
+) {
   const nextEntries = [...entries];
   const existingIndex = nextEntries.findIndex((entry) => entry.card.id === candidate.card.id);
 
@@ -400,7 +465,7 @@ function upsertEntry(entries: YugiohDeckEntry[], candidate: RankedCandidate, cop
     section: candidate.section,
     roles: inferCardRoles(candidate.card, theme, candidate.section),
     rationale: candidate.rationale,
-    locked: matchesTheme(candidate.card, theme),
+    locked: matchesTheme(candidate.card, signals),
   });
 
   return nextEntries.sort((left, right) => left.card.name.localeCompare(right.card.name));
@@ -411,6 +476,7 @@ function fillSectionFromCandidates({
   candidates,
   targetCount,
   theme,
+  signals,
   buildIntent,
   strengthTarget,
   constraints,
@@ -419,6 +485,7 @@ function fillSectionFromCandidates({
   candidates: RankedCandidate[];
   targetCount: number;
   theme: YugiohThemeSelection;
+  signals: ThemeSignals;
   buildIntent: YugiohBuildIntent;
   strengthTarget: YugiohStrengthTarget;
   constraints: YugiohConstraint[];
@@ -448,7 +515,7 @@ function fillSectionFromCandidates({
       continue;
     }
 
-    nextEntries = upsertEntry(nextEntries, candidate, copiesToAdd, theme);
+    nextEntries = upsertEntry(nextEntries, candidate, copiesToAdd, theme, signals);
   }
 
   return nextEntries;
@@ -475,27 +542,78 @@ async function hydrateBossCards(theme: YugiohThemeSelection) {
   };
 }
 
+async function hydrateSeedEntries(seedEntries: YugiohDeckSeed[], theme: YugiohThemeSelection) {
+  if (seedEntries.length === 0) {
+    return {
+      cards: [] as YugiohCard[],
+      entries: [] as YugiohDeckEntry[],
+      sourceAudit: [] as SourceAudit[],
+    };
+  }
+
+  const uniqueIds = [...new Set(seedEntries.map((entry) => entry.cardId))];
+  const response = await lookupYugiohCardsByIds(uniqueIds);
+  const cardMap = new Map<number, YugiohCard>(response.cards.map((card) => [card.id, card]));
+  const entries: YugiohDeckEntry[] = seedEntries
+    .map((seed): YugiohDeckEntry | null => {
+      const card = cardMap.get(seed.cardId);
+
+      if (!card) {
+        return null;
+      }
+
+      return {
+        card,
+        quantity: seed.quantity,
+        section: seed.section,
+        roles: inferCardRoles(card, theme, seed.section),
+        rationale: "Manual seed — you added this card before generating, so the deck builds around it.",
+        locked: true,
+      };
+    })
+    .filter((entry): entry is YugiohDeckEntry => entry !== null);
+
+  return {
+    cards: response.cards,
+    entries,
+    sourceAudit: response.sourceAudit,
+  };
+}
+
 export async function generateYugiohDeckShell({
   theme,
+  preferredDeckVersion = null,
+  seedEntries = [],
   buildIntent,
   strengthTarget,
   constraints,
 }: {
   theme: YugiohThemeSelection;
+  preferredDeckVersion?: string | null;
+  seedEntries?: YugiohDeckSeed[];
   buildIntent: YugiohBuildIntent;
   strengthTarget: YugiohStrengthTarget;
   constraints: YugiohConstraint[];
 }): Promise<YugiohGeneratedDeckResponse> {
-  const [fieldDecksResponse, matchedDecksResponse, bossCardResponse] = await Promise.all([
+  const [bossCardResponse, seedCardResponse] = await Promise.all([
+    hydrateBossCards(theme),
+    hydrateSeedEntries(seedEntries, theme),
+  ]);
+  const themeSignals = buildThemeSignals(theme, bossCardResponse.cards, seedCardResponse.cards);
+
+  const [fieldDecksResponse, matchedDecksResponse] = await Promise.all([
     fetchTournamentMetaDecks({
       limit: 40,
     }),
-    resolveThemeMeta(theme),
-    hydrateBossCards(theme),
+    resolveThemeMeta(themeSignals.queries),
   ]);
 
   const fieldDecks = fieldDecksResponse.decks;
-  const matchedDecks = matchedDecksResponse.decks;
+  const matchedDecks = filterDecksByPreferredVersion(
+    matchedDecksResponse.decks,
+    themeSignals.labels.join(" + ") || theme.query,
+    preferredDeckVersion,
+  );
   const mainThemeStats = buildStats(matchedDecks, "main");
   const extraThemeStats = buildStats(matchedDecks, "extra");
   const sideThemeStats = buildStats(matchedDecks, "side");
@@ -512,12 +630,17 @@ export async function generateYugiohDeckShell({
   ];
   const hydratedCardsResponse = await lookupYugiohCardsByIds(candidateIds);
   const cardMap = new Map<number, YugiohCard>(
-    [...hydratedCardsResponse.cards, ...bossCardResponse.cards].map((card) => [card.id, card]),
+    [...hydratedCardsResponse.cards, ...bossCardResponse.cards, ...seedCardResponse.cards].map((card) => [card.id, card]),
   );
 
-  let main: YugiohDeckEntry[] = [];
-  let extra: YugiohDeckEntry[] = [];
-  let side: YugiohDeckEntry[] = [];
+  let main: YugiohDeckEntry[] = seedCardResponse.entries.filter((entry) => entry.section === "main");
+  let extra: YugiohDeckEntry[] = seedCardResponse.entries.filter((entry) => entry.section === "extra");
+  let side: YugiohDeckEntry[] = seedCardResponse.entries.filter((entry) => entry.section === "side");
+  const anchoredThemeNames = theme.resolvedSupportCards.length > 0
+    ? theme.resolvedSupportCards
+    : theme.resolvedArchetype
+      ? [theme.resolvedArchetype]
+      : [];
 
   if (bossCardResponse.cards.length > 0) {
     const bossCandidates = bossCardResponse.cards.map((card) => ({
@@ -534,6 +657,7 @@ export async function generateYugiohDeckShell({
       candidates: bossCandidates.filter((candidate) => candidate.section === "main"),
       targetCount: 3,
       theme,
+      signals: themeSignals,
       buildIntent,
       strengthTarget,
       constraints,
@@ -544,6 +668,7 @@ export async function generateYugiohDeckShell({
       candidates: bossCandidates.filter((candidate) => candidate.section === "extra"),
       targetCount: 2,
       theme,
+      signals: themeSignals,
       buildIntent,
       strengthTarget,
       constraints,
@@ -555,6 +680,7 @@ export async function generateYugiohDeckShell({
     cardMap,
     section: "main",
     theme,
+    signals: themeSignals,
     buildIntent,
     constraints,
     sampleSize: Math.max(matchedDecks.length, 1),
@@ -565,6 +691,7 @@ export async function generateYugiohDeckShell({
     cardMap,
     section: "extra",
     theme,
+    signals: themeSignals,
     buildIntent,
     constraints,
     sampleSize: Math.max(matchedDecks.length, 1),
@@ -575,6 +702,7 @@ export async function generateYugiohDeckShell({
     cardMap,
     section: "side",
     theme,
+    signals: themeSignals,
     buildIntent,
     constraints,
     sampleSize: Math.max(matchedDecks.length, 1),
@@ -585,6 +713,7 @@ export async function generateYugiohDeckShell({
     cardMap,
     section: "main",
     theme,
+    signals: themeSignals,
     buildIntent,
     constraints,
     sampleSize: Math.max(fieldDecks.length, 1),
@@ -595,6 +724,7 @@ export async function generateYugiohDeckShell({
     cardMap,
     section: "extra",
     theme,
+    signals: themeSignals,
     buildIntent,
     constraints,
     sampleSize: Math.max(fieldDecks.length, 1),
@@ -605,6 +735,7 @@ export async function generateYugiohDeckShell({
     cardMap,
     section: "side",
     theme,
+    signals: themeSignals,
     buildIntent,
     constraints,
     sampleSize: Math.max(fieldDecks.length, 1),
@@ -615,11 +746,60 @@ export async function generateYugiohDeckShell({
   const extraTarget = extraDeckTarget(constraints);
   const sideTarget = sideDeckTarget(strengthTarget);
 
+  if (anchoredThemeNames.length > 1) {
+    const reservedPerTheme = Math.max(4, Math.floor(themeCoreTarget(buildIntent) / anchoredThemeNames.length));
+
+    for (const themeName of anchoredThemeNames) {
+      const themeDecks = filterDecksByPreferredVersion(
+        matchedDecksResponse.decksByQuery.get(themeName) ?? [],
+        themeName,
+        preferredDeckVersion,
+      );
+
+      if (themeDecks.length === 0) {
+        continue;
+      }
+
+      const isolatedTheme: YugiohThemeSelection = {
+        query: themeName,
+        resolvedArchetype: themeName,
+        resolvedBossCards: theme.resolvedBossCards,
+        resolvedSupportCards: [themeName],
+        inactiveBossCards: theme.inactiveBossCards,
+        inactiveSupportCards: theme.inactiveSupportCards,
+      };
+      const isolatedSignals = buildThemeSignals(isolatedTheme, bossCardResponse.cards, seedCardResponse.cards);
+      const isolatedMainCandidates = rankedCandidatesFromStats({
+        stats: buildStats(themeDecks, "main"),
+        cardMap,
+        section: "main",
+        theme: isolatedTheme,
+        signals: isolatedSignals,
+        buildIntent,
+        constraints,
+        sampleSize: Math.max(themeDecks.length, 1),
+        fieldLevel: "theme",
+      });
+
+      main = fillSectionFromCandidates({
+        entries: main,
+        candidates: isolatedMainCandidates,
+        targetCount: Math.min(mainTarget, sumEntries(main) + reservedPerTheme),
+        theme,
+        signals: themeSignals,
+        buildIntent,
+        strengthTarget,
+        constraints,
+      });
+    }
+  }
+
   main = fillSectionFromCandidates({
     entries: main,
     candidates: mainThemeCandidates,
     targetCount: themeCoreTarget(buildIntent),
     theme,
+    signals: themeSignals,
     buildIntent,
     strengthTarget,
     constraints,
@@ -630,6 +810,7 @@ export async function generateYugiohDeckShell({
     candidates: [...mainThemeCandidates, ...mainFieldCandidates],
     targetCount: mainTarget,
     theme,
+    signals: themeSignals,
     buildIntent,
     strengthTarget,
     constraints,
@@ -640,6 +821,7 @@ export async function generateYugiohDeckShell({
     candidates: [...extraThemeCandidates, ...extraFieldCandidates],
     targetCount: extraTarget,
     theme,
+    signals: themeSignals,
     buildIntent,
     strengthTarget,
     constraints,
@@ -650,16 +832,19 @@ export async function generateYugiohDeckShell({
     candidates: [...sideFieldCandidates, ...sideThemeCandidates],
     targetCount: sideTarget,
     theme,
+    signals: themeSignals,
     buildIntent,
     strengthTarget,
     constraints,
   });
 
   if (matchedDecks.length === 0) {
-    const fallbackCardsResponse = await searchYugiohCards(theme.query, theme.resolvedArchetype ?? undefined);
+    const fallbackQuery = themeSignals.anchors[0] ?? seedCardResponse.cards[0]?.name ?? theme.query;
+    const fallbackArchetype = themeSignals.archetypes[0];
+    const fallbackCardsResponse = await searchYugiohCards(fallbackQuery, fallbackArchetype);
     const fallbackCandidates = fallbackCardsResponse.cards.map((card) => ({
       card,
-      score: matchesTheme(card, theme) ? 40 : 20,
+      score: matchesTheme(card, themeSignals) ? 40 : 20,
       averageCopies: 2,
       deckAppearances: 1,
       section: /Fusion|Synchro|Xyz|Link/i.test(card.typeLine) ? "extra" : "main",
@@ -671,6 +856,7 @@ export async function generateYugiohDeckShell({
       candidates: fallbackCandidates.filter((candidate) => candidate.section === "main"),
       targetCount: Math.min(mainTarget, 24),
       theme,
+      signals: themeSignals,
       buildIntent,
       strengthTarget,
       constraints,
@@ -681,6 +867,7 @@ export async function generateYugiohDeckShell({
       candidates: fallbackCandidates.filter((candidate) => candidate.section === "extra"),
       targetCount: extraTarget,
       theme,
+      signals: themeSignals,
       buildIntent,
       strengthTarget,
       constraints,
@@ -688,9 +875,10 @@ export async function generateYugiohDeckShell({
   }
 
   const metaSnapshot = buildYugiohMetaSnapshot({
-    themeQuery: theme.resolvedArchetype ?? theme.resolvedBossCards[0] ?? theme.query,
-    matchedDecks,
+    themeQuery: themeSignals.labels.join(" + ") || theme.query,
+    matchedDecks: matchedDecksResponse.decks,
     fieldDecks,
+    selectedDeckVersion: preferredDeckVersion,
   });
   const structuralReadout = createStructuralReadout({
     main,
@@ -703,6 +891,15 @@ export async function generateYugiohDeckShell({
   });
   const buildNotes = [
     `Built from ${matchedDecks.length} matching tournament-meta deck(s) for ${metaSnapshot.themeQuery} and ${fieldDecks.length} recent field deck(s).`,
+    seedCardResponse.entries.length > 0
+      ? `${seedCardResponse.entries.length} manual seed card${seedCardResponse.entries.length === 1 ? "" : "s"} were preserved and used as build inputs.`
+      : "No manual seed cards were supplied before generation.",
+    themeSignals.archetypes.length > 1 || themeSignals.anchors.length > 1
+      ? `Multiple theme anchors were blended into the source pool: ${themeSignals.labels.join(", ")}.`
+      : `Primary theme focus: ${themeSignals.primaryLabel}.`,
+    preferredDeckVersion && metaSnapshot.deckVersions.some((version) => version.id === preferredDeckVersion)
+      ? `Version bias applied: ${metaSnapshot.deckVersions.find((version) => version.id === preferredDeckVersion)?.label}.`
+      : "No specific deck version was locked, so the build leans toward the broadest popular version mix.",
     matchedDecks.length > 0
       ? "Theme slots were pulled from repeated inclusions in matching lists, while flex space leans on common field staples."
       : "No direct tournament-meta deck matches were found, so this shell falls back to name/archetype card search plus field staples. Confidence is lower.",
@@ -727,6 +924,7 @@ export async function generateYugiohDeckShell({
       ...matchedDecksResponse.sourceAudit,
       ...hydratedCardsResponse.sourceAudit,
       ...bossCardResponse.sourceAudit,
+      ...seedCardResponse.sourceAudit,
     ],
     metaSnapshot,
     structuralReadout,

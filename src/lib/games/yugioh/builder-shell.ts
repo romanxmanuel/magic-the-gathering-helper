@@ -198,10 +198,12 @@ export function inferCardRoles(
 ): YugiohCardRole[] {
   const text = card.desc.toLowerCase();
   const typeLine = card.typeLine.toLowerCase();
-  const themeName = theme?.resolvedArchetype?.toLowerCase() ?? "";
+  const themeNames = [theme?.resolvedArchetype, ...(theme?.resolvedSupportCards ?? [])]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
   const roles = new Set<YugiohCardRole>();
 
-  if (themeName && (card.archetype?.toLowerCase() === themeName || text.includes(themeName))) {
+  if (themeNames.some((themeName) => card.archetype?.toLowerCase() === themeName || text.includes(themeName))) {
     roles.add(SPELL_TRAP_MARKERS.some((marker) => typeLine.includes(marker)) ? "engine-support" : "engine-core");
   }
 
@@ -279,12 +281,16 @@ function countRoleCopies(entries: YugiohDeckEntry[], role: YugiohCardRole) {
 }
 
 function countThemeCopies(entries: YugiohDeckEntry[], theme: YugiohThemeSelection | null) {
-  const themeName = theme?.resolvedArchetype?.toLowerCase();
+  const themeNames = new Set(
+    [theme?.resolvedArchetype, ...(theme?.resolvedSupportCards ?? [])]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase()),
+  );
   const anchorCards = new Set((theme?.resolvedBossCards ?? []).map((name) => name.toLowerCase()));
 
   return entries.reduce((total, entry) => {
     const matchesTheme =
-      (!!themeName && entry.card.archetype?.toLowerCase() === themeName) ||
+      (entry.card.archetype ? themeNames.has(entry.card.archetype.toLowerCase()) : false) ||
       anchorCards.has(entry.card.name.toLowerCase());
 
     return matchesTheme ? total + entry.quantity : total;
@@ -302,7 +308,7 @@ function mergeConstraintList(
 }
 
 function themeLabel(theme: YugiohThemeSelection | null) {
-  return theme?.resolvedArchetype ?? theme?.resolvedBossCards[0] ?? theme?.query.trim() ?? "this shell";
+  return theme?.resolvedSupportCards?.[0] ?? theme?.resolvedArchetype ?? theme?.resolvedBossCards[0] ?? theme?.query.trim() ?? "this deck";
 }
 
 export function createRoleBucketSummary(payload: {

@@ -1,66 +1,75 @@
-# Magic the Gathering Helper
+# Card Lab
 
-Commander-first MTG deck builder with printable proxy sheets, meta-backed recommendations, combo-pressure checks, and a deck list that stays easy to tune.
-
-## Overview
-
-Magic the Gathering Helper is built for Commander players who want to:
-
-- choose a commander or color identity
-- generate a playable 100-card shell
-- tune the list by hand
-- check whether the deck is drifting sharper than intended
-- print true-size proxy sheets for testing
-
-The app is designed to stay lightweight enough for Vercel while still pulling from strong free data sources across the Commander ecosystem.
-
-This repository is also being planned as a dual-product site:
+Dual-game deck building studio for:
 
 - `MTG Commander Lab`
 - `Yu-Gi-Oh Duel Forge`
 
-The Yu-Gi-Oh side is currently a documented architecture and product plan, not a shipped feature.
+Live app: [magic-the-gathering-helper.vercel.app](https://magic-the-gathering-helper.vercel.app)
 
-## Features
+## What It Does
+
+Card Lab is built for players who want to generate strong lists fast, tune them manually, and print clean playtest proxies without leaving the site.
+
+The project currently ships:
+
+- a Commander-first Magic: The Gathering deck builder with meta-backed suggestions, power targeting, combo awareness, and print-ready proxy sheets
+- a Yu-Gi-Oh builder focused on theme blending, anchored cards, popular deck-version biasing, manual seeding, and print-ready playtesting
+
+The app is intentionally lightweight enough to deploy on Vercel while still pulling from strong free card and meta sources.
+
+## Screenshots
+
+### Launcher
+
+![Card Lab launcher](public/readme/launcher.png)
+
+### MTG Commander Lab
+
+![MTG Commander Lab](public/readme/mtg-lab.png)
+
+### Yu-Gi-Oh Duel Forge
+
+![Yu-Gi-Oh Duel Forge](public/readme/yugioh-lab.png)
+
+## Feature Highlights
+
+### MTG Commander Lab
 
 - Commander-only deck building flow
-- Commander search plus color-identity discovery
-- Power presets from casual battlecruiser up to very sharp shells
-- EDHREC-backed synergy tags and meta context
-- Commander Spellbook combo-pressure and bracket estimation
-- Manual add/remove tuning after generation
-- Card thumbnails in the deck list with larger hover preview
-- Printable 2.5in x 3.5in proxy sheets
+- commander and color-identity discovery
+- power-level targeting and deck-shape guidance
+- EDHREC-backed recommendation context
+- Commander Spellbook combo-pressure signals
+- true-size printable proxy sheets for playtesting
+
+### Yu-Gi-Oh Duel Forge
+
+- archetype/theme-based deck generation
+- multi-anchor blending instead of single-theme overwrite
+- anchored card and anchored theme controls with active/inactive toggles
+- deck generation from manually added seed cards, even without anchors
+- popular deck-version targeting
+- manual Main / Extra / Side editing and print flow
+- `.ydk` export
 
 ## Data Sources
 
+### MTG
+
 - `Scryfall`
-  Card search, legality, oracle text, and high-resolution card images
+  Canonical card data, oracle text, legality, and card images
 - `EDHREC`
-  Commander popularity, theme tags, recommendation buckets, and average deck-shape context
+  Commander popularity, recommendation buckets, and deck-shape context
 - `Commander Spellbook`
-  Combo-aware signals and full-deck pressure estimation
+  Combo-aware pressure and Commander-specific signals
 - `Wizards of the Coast`
-  Official Commander banned-list source
+  Official Commander format source
 
-## Documentation
+### Yu-Gi-Oh
 
-- [Architecture](docs/architecture.md)
-- [Data Sources](docs/data-sources.md)
-- [Deck Generation](docs/deck-generation.md)
-- [Types and API Contracts](docs/types-and-api.md)
-  - [Scoring Model](docs/scoring-model.md)
-  - [Implementation Backlog](docs/implementation-backlog.md)
-  - [Phase 1 Shell Plan](docs/phase-1-shell-plan.md)
-  - [MVP Boundaries](docs/mvp-boundaries.md)
-  - [Acceptance Test Plan](docs/acceptance-test-plan.md)
-  - [UI Information Architecture](docs/ui-information-architecture.md)
-  - [Ingestion Operations](docs/ingestion-operations.md)
-  - [Risk Register](docs/risk-register.md)
-- [Decision Log](docs/decision-log.md)
-- [Printing](docs/printing.md)
-- [Meta Pipeline](docs/meta-pipeline.md)
-- [Yu-Gi-Oh Product Overview](docs/yugioh-overview.md)
+- `YGOPRODeck`
+  Card search, archetype search, card images, and public deck/meta data
 
 ## Stack
 
@@ -68,17 +77,17 @@ The Yu-Gi-Oh side is currently a documented architecture and product plan, not a
 - React 19
 - TypeScript
 - Zustand
-- Tailwind CSS 4
 - Zod
+- Tailwind CSS 4
 
-## Development
+## Local Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Useful scripts:
+Useful checks:
 
 ```bash
 npm run typecheck
@@ -86,12 +95,30 @@ npm run lint
 npm run build
 ```
 
-## Product Notes
+## Documentation
 
-- Deck state is persisted in the browser for a lightweight first version.
-- The current build is focused on Commander, not Standard.
-- Proxy sheets are meant for playtesting and customization workflows.
-- The Yu-Gi-Oh expansion is planned in `docs/` and has not been implemented yet.
+- [Architecture](docs/architecture.md)
+- [Data Sources](docs/data-sources.md)
+- [Deck Generation](docs/deck-generation.md)
+- [Printing](docs/printing.md)
+- [Meta Pipeline](docs/meta-pipeline.md)
+- [Types and API Contracts](docs/types-and-api.md)
+- [Scoring Model](docs/scoring-model.md)
+- [Implementation Backlog](docs/implementation-backlog.md)
+- [Phase 1 Shell Plan](docs/phase-1-shell-plan.md)
+- [MVP Boundaries](docs/mvp-boundaries.md)
+- [Acceptance Test Plan](docs/acceptance-test-plan.md)
+- [UI Information Architecture](docs/ui-information-architecture.md)
+- [Ingestion Operations](docs/ingestion-operations.md)
+- [Risk Register](docs/risk-register.md)
+- [Decision Log](docs/decision-log.md)
+- [Yu-Gi-Oh Product Overview](docs/yugioh-overview.md)
+
+## Notes
+
+- Deck state persists locally in the browser.
+- Proxy sheets are intended for personal playtesting and iteration workflows.
+- The project is organized to stay employer-friendly on GitHub, with planning docs and architecture notes kept in `docs/`.
 
 ## License
 

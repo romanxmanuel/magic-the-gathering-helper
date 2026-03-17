@@ -23,8 +23,6 @@ import type {
 } from "@/lib/games/yugioh/types";
 import { useYugiohStore } from "@/store/yugioh-store";
 
-type SearchScope = "theme" | "all";
-
 type HoverPreviewCard = {
   name: string;
   typeLine: string;
@@ -47,6 +45,22 @@ async function fetchJson<T>(input: string, init?: RequestInit) {
 
 function sectionLabel(section: YugiohDeckSection) {
   return section.charAt(0).toUpperCase() + section.slice(1);
+}
+
+function normalizeStringArray(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value).filter((item): item is string => typeof item === "string");
+  }
+
+  return [] as string[];
+}
+
+function normalizeConstraintArray(value: unknown) {
+  return normalizeStringArray(value);
 }
 
 function countCopies(entries: YugiohDeckEntry[], cardId: number) {
@@ -155,13 +169,19 @@ export function YugiohBuilderApp() {
     side,
     buildNotes,
     metaSnapshot,
+    selectedDeckVersion,
     setStrengthTarget,
     setTurnPreference,
     setBuildIntent,
     setConstraints,
+    setSelectedDeckVersion,
     setThemeQuery,
-    setResolvedArchetype,
+    addThemeAnchor,
+    toggleThemeAnchorActive,
+    removeThemeAnchor,
     toggleBossCard,
+    toggleBossAnchorActive,
+    removeBossCardByName,
     setGeneratedDeck,
     addCard,
     decrementCard,
@@ -171,7 +191,6 @@ export function YugiohBuilderApp() {
 
   const [archetypeQuery, setArchetypeQuery] = useState(theme?.resolvedArchetype ?? theme?.query ?? "");
   const [cardQuery, setCardQuery] = useState("");
-  const [searchScope, setSearchScope] = useState<SearchScope>(theme?.resolvedArchetype ? "theme" : "all");
   const deferredArchetypeQuery = useDeferredValue(archetypeQuery);
   const deferredCardQuery = useDeferredValue(cardQuery);
   const [archetypes, setArchetypes] = useState<YugiohArchetype[]>([]);
@@ -185,7 +204,6 @@ export function YugiohBuilderApp() {
   
   const showArchetypeResults = deferredArchetypeQuery.trim().length >= 2;
   const showCardResults = deferredCardQuery.trim().length >= 2;
-  const themeScopedArchetype = searchScope === "theme" ? theme?.resolvedArchetype ?? null : null;
 
   useEffect(() => {
     if (!showArchetypeResults) {
@@ -223,10 +241,6 @@ export function YugiohBuilderApp() {
       q: deferredCardQuery.trim(),
     });
 
-    if (themeScopedArchetype) {
-      params.set("archetype", themeScopedArchetype);
-    }
-
     fetchJson<YugiohCardSearchResponse>(`/api/yugioh/cards?${params.toString()}`)
       .then((payload) => {
         if (!isActive) {
@@ -244,7 +258,7 @@ export function YugiohBuilderApp() {
     return () => {
       isActive = false;
     };
-  }, [deferredCardQuery, showCardResults, themeScopedArchetype]);
+  }, [deferredCardQuery, showCardResults]);
 
   const readout = useMemo(
     () =>
@@ -295,11 +309,12 @@ export function YugiohBuilderApp() {
   const hasGeneratedShell = buildNotes.length > 0 || metaSnapshot !== null;
   const canPrint = totalDeckCards > 0;
   const showQuickRebuilds = hasGeneratedShell && quickRebuildOptions.length > 0;
-  const anchoredCards = useMemo(
-    () =>
-      [...new Set([...(theme?.resolvedBossCards ?? []), ...(theme?.resolvedSupportCards ?? [])])].filter(Boolean),
-    [theme],
-  );
+  const deckVersions = metaSnapshot?.deckVersions ?? [];
+  const matchedDeckSamples = metaSnapshot?.matchedDecks ?? [];
+  const activeThemeAnchors = theme?.resolvedSupportCards ?? [];
+  const inactiveThemeAnchors = theme?.inactiveSupportCards ?? [];
+  const activeBossAnchors = theme?.resolvedBossCards ?? [];
+  const inactiveBossAnchors = theme?.inactiveBossCards ?? [];
 
   function showToast(message: string) {
     if (toastTimeoutRef.current) {
@@ -321,26 +336,31 @@ export function YugiohBuilderApp() {
 
   function applyArchetype(archetype: YugiohArchetype) {
     setErrorMessage(null);
-    clearDeck();
-    setThemeQuery(archetype.name);
-    setResolvedArchetype(archetype.name);
-    setSearchScope("theme");
     setArchetypeQuery(archetype.name);
     setArchetypes([]);
     setIsArchetypeDropdownOpen(false);
-    showToast(`${archetype.name} selected.`);
+    showToast(`${archetype.name} ready to add.`);
   }
 
-  function primeTheme(themeName: string) {
+  function addThemeToAnchors(themeName: string) {
+    const normalized = themeName.trim();
+
+    if (!normalized) {
+      return;
+    }
+
+    if (activeThemeAnchors.includes(normalized) || inactiveThemeAnchors.includes(normalized)) {
+      showToast(`${normalized} is already in your theme anchors.`);
+      return;
+    }
+
     setErrorMessage(null);
-    clearDeck();
-    setArchetypeQuery(themeName);
-    setThemeQuery(themeName);
-    setResolvedArchetype(themeName);
-    setSearchScope("theme");
+    setArchetypeQuery(normalized);
+    setThemeQuery(normalized);
+    addThemeAnchor(normalized);
     setArchetypes([]);
     setIsArchetypeDropdownOpen(false);
-    showToast(`${themeName} locked in as your deck theme.`);
+    showToast(`${normalized} added to your theme anchors.`);
   }
 
   function togglePreviewCard(card: HoverPreviewCard) {
@@ -350,14 +370,27 @@ export function YugiohBuilderApp() {
   function anchorCard(card: YugiohCard) {
     setErrorMessage(null);
 
-    if (card.archetype) {
-      setResolvedArchetype(card.archetype);
+    if (
+      card.archetype &&
+      !activeThemeAnchors.includes(card.archetype) &&
+      !inactiveThemeAnchors.includes(card.archetype)
+    ) {
+      addThemeAnchor(card.archetype);
       setArchetypeQuery(card.archetype);
-      setSearchScope("theme");
     }
 
     toggleBossCard(card);
     showToast(`${card.name} locked in as an anchored card.`);
+  }
+
+  function removeAnchoredCard(cardName: string) {
+    removeBossCardByName(cardName);
+    showToast(`${cardName} removed from anchored cards.`);
+  }
+
+  function removeAnchoredTheme(themeName: string) {
+    removeThemeAnchor(themeName);
+    showToast(`${themeName} removed from theme anchors.`);
   }
 
   function handleExportYdk() {
@@ -402,28 +435,58 @@ export function YugiohBuilderApp() {
     showToast(`${filename} exported.`);
   }
 
-async function generateDeck(overrides?: {
+  async function generateDeck(overrides?: {
     buildIntent?: typeof buildIntent;
     constraints?: typeof constraints;
+    preferredDeckVersion?: string | null;
   }) {
-    const activeTheme = theme ?? {
+    const rawTheme = theme ?? {
       query: archetypeQuery.trim(),
       resolvedArchetype: null,
       resolvedBossCards: [],
       resolvedSupportCards: [],
+      inactiveBossCards: [],
+      inactiveSupportCards: [],
+    };
+    const activeTheme = {
+      query: typeof rawTheme.query === "string" ? rawTheme.query : "",
+      resolvedArchetype:
+        typeof rawTheme.resolvedArchetype === "string" || rawTheme.resolvedArchetype === null
+          ? rawTheme.resolvedArchetype
+          : null,
+      resolvedBossCards: normalizeStringArray(rawTheme.resolvedBossCards),
+      resolvedSupportCards: normalizeStringArray(rawTheme.resolvedSupportCards),
+      inactiveBossCards: normalizeStringArray(rawTheme.inactiveBossCards),
+      inactiveSupportCards: normalizeStringArray(rawTheme.inactiveSupportCards),
     };
     const nextBuildIntent = overrides?.buildIntent ?? buildIntent;
-    const nextConstraints = overrides?.constraints ?? constraints;
+    const nextConstraints = normalizeConstraintArray(overrides?.constraints ?? constraints) as typeof constraints;
+    const nextPreferredDeckVersion =
+      typeof overrides?.preferredDeckVersion === "string" || overrides?.preferredDeckVersion === null
+        ? overrides.preferredDeckVersion
+        : selectedDeckVersion;
+    const seedEntries = [...main, ...extra, ...side]
+      .filter((entry) => entry.locked)
+      .map((entry) => ({
+        cardId: entry.card.id,
+        quantity: entry.quantity,
+        section: entry.section,
+      }));
     const activeThemeLabel =
-      activeTheme.resolvedArchetype ?? activeTheme.resolvedBossCards[0] ?? activeTheme.query.trim();
+      activeTheme.resolvedArchetype ??
+      activeTheme.resolvedSupportCards[0] ??
+      activeTheme.resolvedBossCards[0] ??
+      activeTheme.query.trim() ??
+      main[0]?.card.name ??
+      extra[0]?.card.name ??
+      side[0]?.card.name;
 
-    if (!activeThemeLabel) {
-      setErrorMessage("Pick an archetype or lock in a key card before generating a deck.");
+    if (!activeThemeLabel && seedEntries.length === 0) {
+      setErrorMessage("Pick a theme, anchor a card, or add a few cards to the deck before generating.");
       return;
     }
 
     setErrorMessage(null);
-    clearDeck();
     setIsGenerating(true);
 
     try {
@@ -434,6 +497,8 @@ async function generateDeck(overrides?: {
         },
         body: JSON.stringify({
           theme: activeTheme,
+          preferredDeckVersion: nextPreferredDeckVersion,
+          seedEntries,
           buildIntent: nextBuildIntent,
           strengthTarget,
           constraints: nextConstraints,
@@ -441,7 +506,11 @@ async function generateDeck(overrides?: {
       });
 
       setGeneratedDeck(generatedDeck);
-      showToast(`${activeThemeLabel} deck generated.`);
+      showToast(
+        activeThemeLabel
+          ? `${activeThemeLabel} deck generated.`
+          : "Deck generated around your selected cards.",
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to generate Yu-Gi-Oh deck.");
     } finally {
@@ -458,6 +527,13 @@ async function generateDeck(overrides?: {
     await generateDeck({
       buildIntent: option.buildIntent,
       constraints: option.constraints,
+    });
+  }
+
+  async function applyDeckVersion(versionId: string | null) {
+    setSelectedDeckVersion(versionId);
+    await generateDeck({
+      preferredDeckVersion: versionId,
     });
   }
 
@@ -557,7 +633,11 @@ async function generateDeck(overrides?: {
                     <button
                       key={archetype.id}
                       type="button"
-                      className={`ygo-archetype-dropdown-item ${theme?.resolvedArchetype === archetype.name ? "active" : ""}`}
+                      className={`ygo-archetype-dropdown-item ${
+                        activeThemeAnchors.includes(archetype.name) || inactiveThemeAnchors.includes(archetype.name)
+                          ? "active"
+                          : ""
+                      }`}
                       onClick={() => {
                         applyArchetype(archetype);
                         setArchetypeQuery(archetype.name);
@@ -587,22 +667,34 @@ async function generateDeck(overrides?: {
                     <button
                       type="button"
                       className="ygo-archetype-freeform-item"
-                      onClick={() => primeTheme(archetypeQuery.trim())}
+                      onClick={() => addThemeToAnchors(archetypeQuery.trim())}
                     >
-                      <span>→</span>
-                      <span>Lock in &ldquo;{archetypeQuery.trim()}&rdquo; as a custom theme</span>
+                      <span>+</span>
+                      <span>Add &ldquo;{archetypeQuery.trim()}&rdquo; as a theme anchor</span>
                     </button>
                   )}
                 </div>
               ) : null}
             </div>
+            <button
+              type="button"
+              className="primary-button ygo-theme-anchor-button"
+              onClick={() => addThemeToAnchors(archetypeQuery)}
+              disabled={!archetypeQuery.trim()}
+            >
+              Add theme anchor
+            </button>
             <div className="ygo-forge-seeds">
               {STARTER_THEME_SEEDS.map((seed) => (
                 <button
                   key={seed}
                   type="button"
-                  className={`ygo-forge-seed ${theme?.resolvedArchetype === seed ? "active" : ""}`}
-                  onClick={() => { setArchetypeQuery(seed); primeTheme(seed); }}
+                  className={`ygo-forge-seed ${
+                    activeThemeAnchors.includes(seed) || inactiveThemeAnchors.includes(seed) ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setArchetypeQuery(seed);
+                  }}
                 >
                   {seed}
                 </button>
@@ -610,22 +702,135 @@ async function generateDeck(overrides?: {
             </div>
           </div>
 
-          {(theme?.resolvedArchetype || anchoredCards.length > 0) ? (
+          {(activeThemeAnchors.length > 0 ||
+            inactiveThemeAnchors.length > 0 ||
+            activeBossAnchors.length > 0 ||
+            inactiveBossAnchors.length > 0) ? (
             <div className="ygo-forge-control-block">
-              <p className="ygo-forge-label">Anchored cards</p>
+              <p className="ygo-forge-label">Anchored themes and cards</p>
               <div className="ygo-anchored-stack">
-                {theme?.resolvedArchetype ? (
-                  <article className="ygo-anchored-card">
-                    <span className="ygo-anchored-tag">Theme</span>
-                    <strong>{theme.resolvedArchetype}</strong>
-                    <small>Core game plan</small>
+                {activeThemeAnchors.map((themeName) => (
+                  <article key={themeName} className="ygo-anchored-card">
+                    <div className="ygo-anchored-card-top">
+                      <span className="ygo-anchored-tag">Theme</span>
+                      <div className="ygo-anchored-actions">
+                        <button
+                          type="button"
+                          className="ygo-anchored-toggle"
+                          onClick={() => {
+                            toggleThemeAnchorActive(themeName);
+                            showToast(`${themeName} set inactive.`);
+                          }}
+                          aria-label={`Set ${themeName} inactive`}
+                          aria-pressed={true}
+                        >
+                          Disable
+                        </button>
+                        <button
+                          type="button"
+                          className="ygo-anchored-remove"
+                          onClick={() => removeAnchoredTheme(themeName)}
+                          aria-label={`Remove ${themeName} from theme anchors`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <strong>{themeName}</strong>
+                    <small>Theme anchor</small>
                   </article>
-                ) : null}
-                {anchoredCards.map((name) => (
+                ))}
+                {inactiveThemeAnchors.map((themeName) => (
+                  <article key={`inactive-${themeName}`} className="ygo-anchored-card is-inactive">
+                    <div className="ygo-anchored-card-top">
+                      <span className="ygo-anchored-tag is-inactive">Theme</span>
+                      <div className="ygo-anchored-actions">
+                        <button
+                          type="button"
+                          className="ygo-anchored-toggle is-inactive"
+                          onClick={() => {
+                            toggleThemeAnchorActive(themeName);
+                            showToast(`${themeName} reactivated.`);
+                          }}
+                          aria-label={`Reactivate ${themeName}`}
+                          aria-pressed={false}
+                        >
+                          Enable
+                        </button>
+                        <button
+                          type="button"
+                          className="ygo-anchored-remove"
+                          onClick={() => removeAnchoredTheme(themeName)}
+                          aria-label={`Remove ${themeName} from theme anchors`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <strong>{themeName}</strong>
+                    <small>Saved theme anchor</small>
+                  </article>
+                ))}
+                {activeBossAnchors.map((name) => (
                   <article key={name} className="ygo-anchored-card">
-                    <span className="ygo-anchored-tag">Locked</span>
+                    <div className="ygo-anchored-card-top">
+                      <span className="ygo-anchored-tag">Locked</span>
+                      <div className="ygo-anchored-actions">
+                        <button
+                          type="button"
+                          className="ygo-anchored-toggle"
+                          onClick={() => {
+                            toggleBossAnchorActive(name);
+                            showToast(`${name} set inactive.`);
+                          }}
+                          aria-label={`Set ${name} inactive`}
+                          aria-pressed={true}
+                        >
+                          Disable
+                        </button>
+                        <button
+                          type="button"
+                          className="ygo-anchored-remove"
+                          onClick={() => removeAnchoredCard(name)}
+                          aria-label={`Remove ${name} from anchored cards`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                     <strong>{name}</strong>
                     <small>Anchored card</small>
+                  </article>
+                ))}
+                {inactiveBossAnchors.map((name) => (
+                  <article key={`inactive-boss-${name}`} className="ygo-anchored-card is-inactive">
+                    <div className="ygo-anchored-card-top">
+                      <span className="ygo-anchored-tag is-inactive">Locked</span>
+                      <div className="ygo-anchored-actions">
+                        <button
+                          type="button"
+                          className="ygo-anchored-toggle is-inactive"
+                          onClick={() => {
+                            toggleBossAnchorActive(name);
+                            showToast(`${name} reactivated.`);
+                          }}
+                          aria-label={`Reactivate ${name}`}
+                          aria-pressed={false}
+                        >
+                          Enable
+                        </button>
+                        <button
+                          type="button"
+                          className="ygo-anchored-remove"
+                          onClick={() => removeAnchoredCard(name)}
+                          aria-label={`Remove ${name} from anchored cards`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <strong>{name}</strong>
+                    <small>Saved anchored card</small>
                   </article>
                 ))}
               </div>
@@ -657,9 +862,9 @@ async function generateDeck(overrides?: {
             </div>
           </div>
 
-          {/* Strength */}
+          {/* Power Level */}
           <div className="ygo-forge-control-block">
-            <p className="ygo-forge-label">Strength</p>
+            <p className="ygo-forge-label">Power Level</p>
             <div className="ygo-forge-strength-row">
               {YUGIOH_STRENGTH_OPTIONS.map((option) => (
                 <button
@@ -700,6 +905,98 @@ async function generateDeck(overrides?: {
         {/* CENTER — Deck */}
         <div className="ygo-forge-center">
 
+          <div className="ygo-forge-control-block ygo-forge-search-spotlight">
+            <div className="ygo-forge-search-header ygo-forge-search-header-stack">
+              <div>
+                <p className="ygo-forge-label">Card search</p>
+                <h2 className="ygo-forge-search-title">Add any card to your deck</h2>
+                <p className="empty-copy ygo-forge-search-copy">
+                  Search the full card pool, lock in whatever you want, then print the exact list you built.
+                </p>
+              </div>
+            </div>
+            <input
+              id="yugioh-card-search"
+              className="app-input ygo-forge-search-input"
+              placeholder="Search any card, staple, boss monster, hand trap, or tech..."
+              value={cardQuery}
+              onChange={(event) => {
+                setErrorMessage(null);
+                const nextValue = event.target.value;
+                setCardQuery(nextValue);
+                if (nextValue.trim().length < 2) {
+                  setCards([]);
+                }
+              }}
+            />
+            {showCardResults && cards.length === 0 ? (
+              <p className="empty-copy ygo-search-empty">No matches yet. Try a full card name or a shorter keyword.</p>
+            ) : null}
+            {showCardResults && cards.length > 0 ? (
+              <div className="ygo-compact-result-list ygo-spotlight-result-list">
+                {cards.map((card) => {
+                  const suggestedSection = inferDeckSection(card);
+                  const suggestedCopies =
+                    suggestedSection === "extra" ? countCopies(extra, card.id) : countCopies(main, card.id);
+                  const sideCopies = countCopies(side, card.id);
+                  const bossCardSelected =
+                    activeBossAnchors.includes(card.name) || inactiveBossAnchors.includes(card.name);
+
+                  return (
+                    <div key={card.id} className="ygo-compact-card-item">
+                      <button
+                        type="button"
+                        className="ygo-card-preview-trigger"
+                        onClick={() =>
+                          togglePreviewCard({
+                            name: card.name,
+                            typeLine: card.typeLine,
+                            image: card.images.full || card.images.small || "",
+                            desc: card.desc,
+                          })
+                        }
+                      >
+                        {card.images.small ? (
+                          <Image
+                            src={card.images.small}
+                            alt={card.name}
+                            width={48}
+                            height={70}
+                            className="ygo-compact-card-thumb"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="ygo-compact-card-thumb" style={{display: 'grid', placeItems: 'center', fontSize: '10px', color: '#64748b', border: '1px solid rgba(255,255,255,0.1)'}}>No img</div>
+                        )}
+                      </button>
+                      <div className="ygo-compact-card-copy">
+                        <strong>{card.name}</strong>
+                        <small>{card.typeLine}</small>
+                      </div>
+                      <div className="ygo-compact-card-actions">
+                        <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => handleAddCard(card, suggestedSection)}>
+                          +{suggestedCopies > 0 ? suggestedCopies : ""}
+                        </button>
+                        <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => handleAddCard(card, "side")}>
+                          S{sideCopies > 0 ? sideCopies : ""}
+                        </button>
+                        <button
+                          type="button"
+                          className={`ygo-filter-chip ${bossCardSelected ? "tag-pill-active" : ""}`}
+                          style={{padding: '0.2rem 0.5rem', margin: 0, background: bossCardSelected ? 'rgba(59, 130, 246, 0.4)' : undefined, color: bossCardSelected ? '#fff' : undefined}}
+                          onClick={() => anchorCard(card)}
+                          title="Lock as anchored card"
+                        >
+                          ⚓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+
           {/* Stats + odds bar */}
           {totalDeckCards > 0 ? (
             <div className="ygo-forge-stats-bar">
@@ -726,7 +1023,7 @@ async function generateDeck(overrides?: {
           {totalDeckCards === 0 ? (
             <div className="empty-state-card">
               <strong>No deck yet</strong>
-              <p className="empty-copy">Pick a theme on the left and build a deck, or search cards on the right to put one together by hand.</p>
+              <p className="empty-copy">Pick a theme on the left, then use the card search above to build exactly what you want to print and test.</p>
             </div>
           ) : null}
 
@@ -764,116 +1061,8 @@ async function generateDeck(overrides?: {
           </div>
         </div>
 
-        {/* RIGHT — Card search + analysis */}
+        {/* RIGHT — Analysis */}
         <div className="ygo-forge-right">
-
-          {/* Card search */}
-          <div className="ygo-forge-control-block">
-            <div className="ygo-forge-search-header">
-              <p className="ygo-forge-label">Card search</p>
-              {theme?.resolvedArchetype ? (
-                <div className="game-switcher yugioh-search-scope">
-                  <button
-                    type="button"
-                    className={`game-switcher-link ${searchScope === "theme" ? "game-switcher-link-active" : ""}`}
-                    onClick={() => setSearchScope("theme")}
-                  >
-                    Archetype
-                  </button>
-                  <button
-                    type="button"
-                    className={`game-switcher-link ${searchScope === "all" ? "game-switcher-link-active" : ""}`}
-                    onClick={() => setSearchScope("all")}
-                  >
-                    All
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            <input
-              id="yugioh-card-search"
-              className="app-input"
-              placeholder={themeScopedArchetype ? `Search inside ${themeScopedArchetype}...` : "Search any card..."}
-              value={cardQuery}
-              onChange={(event) => {
-                setErrorMessage(null);
-                const nextValue = event.target.value;
-                setCardQuery(nextValue);
-                if (nextValue.trim().length < 2) {
-                  setCards([]);
-                }
-              }}
-            />
-            {showCardResults && cards.length === 0 ? (
-              <p className="empty-copy" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
-                {themeScopedArchetype ? `Nothing in ${themeScopedArchetype}. Switch to All.` : "No matches."}
-              </p>
-            ) : null}
-            {showCardResults && cards.length > 0 ? (
-              <>
-                <div className="ygo-compact-result-list">
-                  {cards.map((card) => {
-                    const suggestedSection = inferDeckSection(card);
-                    const suggestedCopies =
-                      suggestedSection === "extra" ? countCopies(extra, card.id) : countCopies(main, card.id);
-                    const sideCopies = countCopies(side, card.id);
-                    const bossCardSelected = theme?.resolvedBossCards.includes(card.name) ?? false;
-
-                    return (
-                      <div key={card.id} className="ygo-compact-card-item">
-                        <button
-                          type="button"
-                          className="ygo-card-preview-trigger"
-                          onClick={() =>
-                            togglePreviewCard({
-                              name: card.name,
-                              typeLine: card.typeLine,
-                              image: card.images.full || card.images.small || "",
-                              desc: card.desc,
-                            })
-                          }
-                        >
-                          {card.images.small ? (
-                            <Image
-                              src={card.images.small}
-                              alt={card.name}
-                              width={48}
-                              height={70}
-                              className="ygo-compact-card-thumb"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="ygo-compact-card-thumb" style={{display: 'grid', placeItems: 'center', fontSize: '10px', color: '#64748b', border: '1px solid rgba(255,255,255,0.1)'}}>No img</div>
-                          )}
-                        </button>
-                        <div className="ygo-compact-card-copy">
-                          <strong>{card.name}</strong>
-                          <small>{card.typeLine}</small>
-                        </div>
-                        <div className="ygo-compact-card-actions">
-                          <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => handleAddCard(card, suggestedSection)}>
-                            +{suggestedCopies > 0 ? suggestedCopies : ""}
-                          </button>
-                          <button type="button" className="ygo-filter-chip" style={{padding: '0.2rem 0.5rem', margin: 0}} onClick={() => handleAddCard(card, "side")}>
-                            S{sideCopies > 0 ? sideCopies : ""}
-                          </button>
-                          <button
-                            type="button"
-                            className={`ygo-filter-chip ${bossCardSelected ? "tag-pill-active" : ""}`}
-                            style={{padding: '0.2rem 0.5rem', margin: 0, background: bossCardSelected ? 'rgba(59, 130, 246, 0.4)' : undefined, color: bossCardSelected ? '#fff' : undefined}}
-                            onClick={() => anchorCard(card)}
-                            title="Lock as anchored card"
-                          >
-                            ⚓
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : null}
-          </div>
 
           {/* Role breakdown */}
           {totalDeckCards > 0 ? (
@@ -903,21 +1092,38 @@ async function generateDeck(overrides?: {
             </div>
           ) : null}
 
-          {/* Meta field */}
-          {metaSnapshot ? (
+          {/* Popular versions */}
+          {deckVersions.length > 0 ? (
             <div className="ygo-forge-control-block">
-              <p className="ygo-forge-label">Meta field — {metaSnapshot.matchedDeckCount} lists matched</p>
+              <p className="ygo-forge-label">Popular deck versions</p>
               <div className="yugioh-meta-chip-grid">
-                {metaSnapshot.topFieldDecks.map((entry, index) => (
-                  <article key={`${entry.name}-${index}`} className="summary-card yugioh-meta-chip">
-                    <strong>{entry.name}</strong>
-                    <small>{entry.count} lists</small>
-                  </article>
+                <button
+                  type="button"
+                  className={`summary-card yugioh-meta-chip ${selectedDeckVersion === null ? "is-selected" : ""}`}
+                  onClick={() => void applyDeckVersion(null)}
+                >
+                  <strong>All popular versions</strong>
+                  <small>Blend the strongest common lines together</small>
+                </button>
+                {deckVersions.map((version) => (
+                  <button
+                    key={version.id}
+                    type="button"
+                    className={`summary-card yugioh-meta-chip ${
+                      selectedDeckVersion === version.id ? "is-selected" : ""
+                    }`}
+                    onClick={() => void applyDeckVersion(version.id)}
+                  >
+                    <strong>{version.label}</strong>
+                    <small>{version.count} matching list{version.count === 1 ? "" : "s"}</small>
+                  </button>
                 ))}
               </div>
-              {metaSnapshot.matchedDecks.length > 0 ? (
+              {deckVersions.length > 0 ? (
                 <div className="yugioh-sample-list" style={{ marginTop: '0.5rem' }}>
-                  {metaSnapshot.matchedDecks.slice(0, 4).map((deck, index) => (
+                  {(deckVersions.find((version) => version.id === selectedDeckVersion)?.sampleDecks ??
+                    deckVersions[0]?.sampleDecks ??
+                    matchedDeckSamples.slice(0, 3)).map((deck, index) => (
                     <a
                       key={`${deck.deckUrl}-${index}`}
                       href={deck.deckUrl}

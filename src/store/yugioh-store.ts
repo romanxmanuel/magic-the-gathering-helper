@@ -31,6 +31,7 @@ type YugiohStoreState = {
   buildNotes: string[];
   sourceAudit: SourceAudit[];
   metaSnapshot: YugiohGeneratedDeckResponse["metaSnapshot"] | null;
+  selectedDeckVersion: string | null;
   setFormatMode: (formatMode: YugiohFormatMode) => void;
   setStrengthTarget: (strengthTarget: YugiohStrengthTarget) => void;
   setTurnPreference: (turnPreference: YugiohTurnPreference) => void;
@@ -39,8 +40,14 @@ type YugiohStoreState = {
   clearTheme: () => void;
   setThemeQuery: (query: string) => void;
   setResolvedArchetype: (resolvedArchetype: string | null) => void;
+  addThemeAnchor: (themeName: string) => void;
+  toggleThemeAnchorActive: (themeName: string) => void;
+  removeThemeAnchor: (themeName: string) => void;
   toggleBossCard: (card: YugiohCard) => void;
+  toggleBossAnchorActive: (cardName: string) => void;
+  removeBossCardByName: (cardName: string) => void;
   toggleConstraint: (constraint: YugiohConstraint) => void;
+  setSelectedDeckVersion: (selectedDeckVersion: string | null) => void;
   setGeneratedDeck: (payload: YugiohGeneratedDeckResponse) => void;
   addCard: (card: YugiohCard, section: YugiohDeckSection) => void;
   decrementCard: (cardId: number, section: YugiohDeckSection) => void;
@@ -55,6 +62,8 @@ function emptyTheme(): YugiohThemeSelection {
     resolvedArchetype: null,
     resolvedBossCards: [],
     resolvedSupportCards: [],
+    inactiveBossCards: [],
+    inactiveSupportCards: [],
   };
 }
 
@@ -68,7 +77,7 @@ function updateSection(
 
   if (existingEntry) {
     return entries.map((entry) =>
-      entry.card.id === card.id ? { ...entry, quantity: Math.min(entry.quantity + 1, 3) } : entry,
+      entry.card.id === card.id ? { ...entry, quantity: Math.min(entry.quantity + 1, 3), locked: true } : entry,
     );
   }
 
@@ -79,10 +88,11 @@ function updateSection(
       quantity: 1,
       section,
       roles: inferCardRoles(card, theme, section),
+      locked: true,
       rationale:
-        theme?.resolvedArchetype && card.archetype === theme.resolvedArchetype
-          ? `${card.name} reinforces the ${theme.resolvedArchetype} shell.`
-          : undefined,
+        [theme?.resolvedArchetype, ...(theme?.resolvedSupportCards ?? [])].filter(Boolean).includes(card.archetype ?? "")
+          ? `${card.name} reinforces one of your anchored themes.`
+          : "Manual seed - you added this card yourself, so future builds can keep building around it.",
     },
   ].sort((left, right) => left.card.name.localeCompare(right.card.name));
 }
@@ -120,6 +130,7 @@ export const useYugiohStore = create<YugiohStoreState>()(
       buildNotes: [],
       sourceAudit: [],
       metaSnapshot: null,
+      selectedDeckVersion: null,
       setFormatMode: (formatMode) => set({ formatMode, ...clearGeneratedInsights() }),
       setStrengthTarget: (strengthTarget) => set({ strengthTarget, ...clearGeneratedInsights() }),
       setTurnPreference: (turnPreference) =>
@@ -131,13 +142,20 @@ export const useYugiohStore = create<YugiohStoreState>()(
         }),
       setBuildIntent: (buildIntent) => set({ buildIntent, ...clearGeneratedInsights() }),
       setConstraints: (constraints) => set({ constraints, ...clearGeneratedInsights() }),
-      clearTheme: () => set({ theme: null, ...clearGeneratedInsights() }),
+      clearTheme: () => set({ theme: null, selectedDeckVersion: null, ...clearGeneratedInsights() }),
       setThemeQuery: (query) =>
         set((state) => {
           const trimmed = query.trim();
 
-          if (!trimmed && !state.theme?.resolvedArchetype && (state.theme?.resolvedBossCards.length ?? 0) === 0) {
-            return { theme: null, ...clearGeneratedInsights() };
+          if (
+            !trimmed &&
+            !state.theme?.resolvedArchetype &&
+            (state.theme?.resolvedBossCards.length ?? 0) === 0 &&
+            (state.theme?.resolvedSupportCards.length ?? 0) === 0 &&
+            (state.theme?.inactiveBossCards.length ?? 0) === 0 &&
+            (state.theme?.inactiveSupportCards.length ?? 0) === 0
+          ) {
+            return { theme: null, selectedDeckVersion: null, ...clearGeneratedInsights() };
           }
 
           return {
@@ -145,13 +163,21 @@ export const useYugiohStore = create<YugiohStoreState>()(
               ...(state.theme ?? emptyTheme()),
               query,
             },
+            selectedDeckVersion: null,
             ...clearGeneratedInsights(),
           };
         }),
       setResolvedArchetype: (resolvedArchetype) =>
         set((state) => {
-          if (!resolvedArchetype && !state.theme?.query.trim() && (state.theme?.resolvedBossCards.length ?? 0) === 0) {
-            return { theme: null, ...clearGeneratedInsights() };
+          if (
+            !resolvedArchetype &&
+            !state.theme?.query.trim() &&
+            (state.theme?.resolvedBossCards.length ?? 0) === 0 &&
+            (state.theme?.resolvedSupportCards.length ?? 0) === 0 &&
+            (state.theme?.inactiveBossCards.length ?? 0) === 0 &&
+            (state.theme?.inactiveSupportCards.length ?? 0) === 0
+          ) {
+            return { theme: null, selectedDeckVersion: null, ...clearGeneratedInsights() };
           }
 
           return {
@@ -159,6 +185,79 @@ export const useYugiohStore = create<YugiohStoreState>()(
               ...(state.theme ?? emptyTheme()),
               resolvedArchetype,
             },
+            selectedDeckVersion: null,
+            ...clearGeneratedInsights(),
+          };
+        }),
+      addThemeAnchor: (themeName) =>
+        set((state) => {
+          const currentTheme = state.theme ?? emptyTheme();
+          const normalized = themeName.trim();
+
+          if (!normalized) {
+            return state;
+          }
+
+          const nextAnchors = [...new Set([...currentTheme.resolvedSupportCards, normalized])];
+
+          return {
+            theme: {
+              ...currentTheme,
+              query: normalized,
+              resolvedArchetype: nextAnchors[0] ?? currentTheme.resolvedArchetype,
+              resolvedSupportCards: nextAnchors,
+              inactiveSupportCards: currentTheme.inactiveSupportCards.filter((name) => name !== normalized),
+            },
+            selectedDeckVersion: null,
+            ...clearGeneratedInsights(),
+          };
+        }),
+      toggleThemeAnchorActive: (themeName) =>
+        set((state) => {
+          const currentTheme = state.theme ?? emptyTheme();
+          const isActive = currentTheme.resolvedSupportCards.includes(themeName);
+          const nextActive = isActive
+            ? currentTheme.resolvedSupportCards.filter((name) => name !== themeName)
+            : [...currentTheme.resolvedSupportCards, themeName];
+          const nextInactive = isActive
+            ? [...currentTheme.inactiveSupportCards, themeName]
+            : currentTheme.inactiveSupportCards.filter((name) => name !== themeName);
+
+          return {
+            theme: {
+              ...currentTheme,
+              resolvedArchetype: nextActive[0] ?? null,
+              resolvedSupportCards: nextActive,
+              inactiveSupportCards: nextInactive,
+            },
+            selectedDeckVersion: null,
+            ...clearGeneratedInsights(),
+          };
+        }),
+      removeThemeAnchor: (themeName) =>
+        set((state) => {
+          const currentTheme = state.theme ?? emptyTheme();
+          const nextAnchors = currentTheme.resolvedSupportCards.filter((name) => name !== themeName);
+          const nextInactive = currentTheme.inactiveSupportCards.filter((name) => name !== themeName);
+
+          if (
+            !currentTheme.query.trim() &&
+            nextAnchors.length === 0 &&
+            nextInactive.length === 0 &&
+            currentTheme.resolvedBossCards.length === 0 &&
+            currentTheme.inactiveBossCards.length === 0
+          ) {
+            return { theme: null, selectedDeckVersion: null, ...clearGeneratedInsights() };
+          }
+
+          return {
+            theme: {
+              ...currentTheme,
+              resolvedArchetype: nextAnchors[0] ?? null,
+              resolvedSupportCards: nextAnchors,
+              inactiveSupportCards: nextInactive,
+            },
+            selectedDeckVersion: null,
             ...clearGeneratedInsights(),
           };
         }),
@@ -172,8 +271,55 @@ export const useYugiohStore = create<YugiohStoreState>()(
               ...currentTheme,
               resolvedBossCards: alreadySelected
                 ? currentTheme.resolvedBossCards.filter((name) => name !== card.name)
-                : [...currentTheme.resolvedBossCards, card.name].slice(-3),
+                : [...currentTheme.resolvedBossCards, card.name],
+              inactiveBossCards: currentTheme.inactiveBossCards.filter((name) => name !== card.name),
             },
+            selectedDeckVersion: null,
+            ...clearGeneratedInsights(),
+          };
+        }),
+      toggleBossAnchorActive: (cardName) =>
+        set((state) => {
+          const currentTheme = state.theme ?? emptyTheme();
+          const isActive = currentTheme.resolvedBossCards.includes(cardName);
+
+          return {
+            theme: {
+              ...currentTheme,
+              resolvedBossCards: isActive
+                ? currentTheme.resolvedBossCards.filter((name) => name !== cardName)
+                : [...currentTheme.resolvedBossCards, cardName],
+              inactiveBossCards: isActive
+                ? [...currentTheme.inactiveBossCards, cardName]
+                : currentTheme.inactiveBossCards.filter((name) => name !== cardName),
+            },
+            selectedDeckVersion: null,
+            ...clearGeneratedInsights(),
+          };
+        }),
+      removeBossCardByName: (cardName) =>
+        set((state) => {
+          const currentTheme = state.theme ?? emptyTheme();
+          const nextActive = currentTheme.resolvedBossCards.filter((name) => name !== cardName);
+          const nextInactive = currentTheme.inactiveBossCards.filter((name) => name !== cardName);
+
+          if (
+            !currentTheme.query.trim() &&
+            currentTheme.resolvedSupportCards.length === 0 &&
+            currentTheme.inactiveSupportCards.length === 0 &&
+            nextActive.length === 0 &&
+            nextInactive.length === 0
+          ) {
+            return { theme: null, selectedDeckVersion: null, ...clearGeneratedInsights() };
+          }
+
+          return {
+            theme: {
+              ...currentTheme,
+              resolvedBossCards: nextActive,
+              inactiveBossCards: nextInactive,
+            },
+            selectedDeckVersion: null,
             ...clearGeneratedInsights(),
           };
         }),
@@ -184,6 +330,7 @@ export const useYugiohStore = create<YugiohStoreState>()(
             : [...state.constraints, constraint],
           ...clearGeneratedInsights(),
         })),
+      setSelectedDeckVersion: (selectedDeckVersion) => set({ selectedDeckVersion }),
       setGeneratedDeck: ({ main, extra, side, buildNotes, sourceAudit, metaSnapshot }) =>
         set({
           main,
@@ -192,6 +339,7 @@ export const useYugiohStore = create<YugiohStoreState>()(
           buildNotes,
           sourceAudit,
           metaSnapshot,
+          selectedDeckVersion: metaSnapshot.selectedDeckVersion,
         }),
       addCard: (card, section) =>
         set((state) => {
@@ -246,6 +394,7 @@ export const useYugiohStore = create<YugiohStoreState>()(
           buildNotes: [],
           sourceAudit: [],
           metaSnapshot: null,
+          selectedDeckVersion: null,
         }),
       clearAll: () =>
         set({
@@ -261,6 +410,7 @@ export const useYugiohStore = create<YugiohStoreState>()(
           buildNotes: [],
           sourceAudit: [],
           metaSnapshot: null,
+          selectedDeckVersion: null,
         }),
     }),
     {
@@ -279,6 +429,7 @@ export const useYugiohStore = create<YugiohStoreState>()(
         buildNotes: state.buildNotes,
         sourceAudit: state.sourceAudit,
         metaSnapshot: state.metaSnapshot,
+        selectedDeckVersion: state.selectedDeckVersion,
       }),
     },
   ),

@@ -70,6 +70,12 @@ export type YugiohDeckEntry = {
   locked?: boolean;
 };
 
+export type YugiohDeckSeed = {
+  cardId: number;
+  quantity: number;
+  section: YugiohDeckSection;
+};
+
 export type YugiohArchetype = {
   id: string;
   name: string;
@@ -83,6 +89,8 @@ export type YugiohThemeSelection = {
   resolvedArchetype: string | null;
   resolvedBossCards: string[];
   resolvedSupportCards: string[];
+  inactiveBossCards: string[];
+  inactiveSupportCards: string[];
 };
 
 export type YugiohMetaTarget = {
@@ -103,12 +111,21 @@ export type YugiohMetaArchetypeStat = {
   count: number;
 };
 
+export type YugiohDeckVersionOption = {
+  id: string;
+  label: string;
+  count: number;
+  sampleDecks: YugiohMetaDeckSample[];
+};
+
 export type YugiohMetaSnapshot = {
   themeQuery: string;
   matchedDeckCount: number;
   fieldSampleSize: number;
   topFieldDecks: YugiohMetaArchetypeStat[];
   matchedDecks: YugiohMetaDeckSample[];
+  deckVersions: YugiohDeckVersionOption[];
+  selectedDeckVersion: string | null;
 };
 
 export type YugiohStructuralReadout = {
