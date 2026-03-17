@@ -1,15 +1,15 @@
-# Card Lab
+# Duel Forge
 
 Dual-game deck building studio for:
 
-- `MTG Commander Lab`
-- `Yu-Gi-Oh Duel Forge`
+- `MTG Command Lab`
+- `Yu-Gi-Oh Duel Lab`
 
-Live app: [duel-card-lab.vercel.app](https://duel-card-lab.vercel.app)
+Live app: [duel-forge.vercel.app](https://duel-forge.vercel.app)
 
 ## What It Does
 
-Card Lab is built for players who want to generate strong lists fast, tune them manually, and print clean playtest proxies without leaving the site.
+Duel Forge is built for players who want to generate strong lists fast, tune them manually, and print clean playtest proxies without leaving the site.
 
 The project currently ships:
 
@@ -22,19 +22,19 @@ The app is intentionally lightweight enough to deploy on Vercel while still pull
 
 ### Launcher
 
-![Card Lab launcher](public/readme/launcher.png)
+![Duel Forge launcher](public/readme/launcher.png)
 
-### MTG Commander Lab
+### MTG Command Lab
 
-![MTG Commander Lab](public/readme/mtg-lab.png)
+![MTG Command Lab](public/readme/mtg-lab.png)
 
-### Yu-Gi-Oh Duel Forge
+### Yu-Gi-Oh Duel Lab
 
-![Yu-Gi-Oh Duel Forge](public/readme/yugioh-lab.png)
+![Yu-Gi-Oh Duel Lab](public/readme/yugioh-lab.png)
 
 ## Feature Highlights
 
-### MTG Commander Lab
+### MTG Command Lab
 
 - Commander-only deck building flow
 - commander and color-identity discovery
@@ -43,7 +43,7 @@ The app is intentionally lightweight enough to deploy on Vercel while still pull
 - Commander Spellbook combo-pressure signals
 - true-size printable proxy sheets for playtesting
 
-### Yu-Gi-Oh Duel Forge
+### Yu-Gi-Oh Duel Lab
 
 - archetype/theme-based deck generation
 - multi-anchor blending instead of single-theme overwrite

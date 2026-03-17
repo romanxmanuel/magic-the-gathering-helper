@@ -7,22 +7,22 @@ import { GameSwitcher } from "@/components/shell/game-switcher";
 
 function getSectionLabel(pathname: string) {
   if (pathname.startsWith("/mtg/print")) {
-    return "MTG Print Studio";
+    return "Command Lab Print Studio";
   }
 
   if (pathname.startsWith("/mtg") || pathname.startsWith("/builder") || pathname.startsWith("/print")) {
-    return "MTG Commander Lab";
+    return "MTG Command Lab";
   }
 
   if (pathname.startsWith("/yugioh/print")) {
-    return "Yu-Gi-Oh Print Studio";
+    return "Duel Lab Print Studio";
   }
 
   if (pathname.startsWith("/yugioh")) {
-    return "Yu-Gi-Oh Duel Forge";
+    return "Yu-Gi-Oh Duel Lab";
   }
 
-  return "Dual TCG Deck Lab";
+  return "Dual TCG Forge";
 }
 
 export function AppHeader() {
@@ -33,10 +33,10 @@ export function AppHeader() {
     <header className="site-header no-print">
       <div className="site-header-inner">
         <Link href="/" className="site-brand">
-          <span className="site-brand-mark">CL</span>
+          <span className="site-brand-mark">DF</span>
           <span className="site-brand-copy">
-            <strong>Card Lab</strong>
-            <small>Separate MTG and Yu-Gi-Oh labs under one roof.</small>
+            <strong>Duel Forge</strong>
+            <small>Command Lab for MTG. Duel Lab for Yu-Gi-Oh.</small>
           </span>
         </Link>
 

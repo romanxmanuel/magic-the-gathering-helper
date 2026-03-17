@@ -6,10 +6,10 @@ export default function HomePage() {
       <section className="launcher-hero">
         <div className="launcher-hero-grid">
           <div className="launcher-copy">
-            <p className="eyebrow">Dual TCG Deck Lab</p>
+            <p className="eyebrow">Dual TCG Forge</p>
             <h1>Choose your game, build sharper lists, and print clean playtest proxies.</h1>
             <p className="hero-description">
-              Card Lab gives Magic and Yu-Gi-Oh their own dedicated builder flows inside one polished shell. Each game
+              Duel Forge gives Magic and Yu-Gi-Oh their own dedicated builder flows inside one polished shell. Each game
               keeps separate logic, tuning controls, and print behavior so the experience feels native instead of
               mashed together.
             </p>
@@ -51,7 +51,7 @@ export default function HomePage() {
           <Link href="/mtg" className="launcher-card launcher-card-mtg">
             <div className="launcher-card-copy">
               <p className="panel-kicker">Magic: The Gathering</p>
-              <h2>Commander Lab</h2>
+              <h2>Command Lab</h2>
               <p>
                 Build 100-card Commander shells, tune them with meta context, and print full proxy sheets for
                 playtesting.
@@ -68,7 +68,7 @@ export default function HomePage() {
           <Link href="/yugioh" className="launcher-card launcher-card-yugioh">
             <div className="launcher-card-copy">
               <p className="panel-kicker">Yu-Gi-Oh!</p>
-              <h2>Duel Forge</h2>
+              <h2>Duel Lab</h2>
               <p>
                 Theme-first shell building for archetypes like Yubel, Sky Striker, and Tenpai, with explainable tuning,
                 rebuild paths, and proxy-ready print output.
@@ -79,7 +79,7 @@ export default function HomePage() {
               <li>Explainable structure scoring</li>
               <li>Quick rebuild and print flow</li>
             </ul>
-            <span className="launcher-card-cta">Open Duel Forge</span>
+            <span className="launcher-card-cta">Open Duel Lab</span>
           </Link>
         </div>
       </section>

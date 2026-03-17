@@ -17,8 +17,8 @@ const bodyFont = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Card Lab",
-  description: "Dual-game deck building platform for MTG Commander and Yu-Gi-Oh playtest workflows.",
+  title: "Duel Forge",
+  description: "Dual-game deck building platform with MTG Command Lab and Yu-Gi-Oh Duel Lab.",
 };
 
 export default function RootLayout({
